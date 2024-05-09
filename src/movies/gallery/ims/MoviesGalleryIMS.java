@@ -2,6 +2,9 @@ package movies.gallery.ims;
 
 import javax.swing.JFrame;
 import java.sql.*;
+import javax.swing.ImageIcon;
+import java.awt.*;
+
 
 public class MoviesGalleryIMS {
     static final String JDBC_DRIVER = "org.sqlite.JDBC";
@@ -109,7 +112,20 @@ public class MoviesGalleryIMS {
     java.awt.EventQueue.invokeLater(new Runnable() {
         public void run() {
             newForm frame = new newForm();
-            frame.setSize(742, 620);
+            frame.setSize(1443, 840);
+            frame.setTitle("Movies Gallery Information Management System");
+
+            ImageIcon icon = new ImageIcon("icon.png");
+            Image image = icon.getImage();
+
+            if (image != null) {
+                // The image was successfully loaded
+                System.out.println("Image loaded successfully.");
+                frame.setIconImage(image);
+            } else {
+                // The image failed to load
+                System.out.println("Failed to load image.");
+}
             frame.setVisible(true);
         }
     });

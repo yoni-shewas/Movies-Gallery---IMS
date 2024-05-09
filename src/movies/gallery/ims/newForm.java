@@ -27,6 +27,7 @@ public class newForm extends javax.swing.JFrame {
      */
     static final String DB_URL = "jdbc:sqlite:movies_database.db";
     private JPanel moviePanel;
+    private int userID;
     
     public newForm() {
         initComponents();
@@ -39,6 +40,7 @@ public class newForm extends javax.swing.JFrame {
 
     private void switchToSignUpPanel() {
         tabs.setSelectedComponent(signUP);
+        
     }
 
     private void switchToHomePanel() {
@@ -46,13 +48,9 @@ public class newForm extends javax.swing.JFrame {
         
         System.out.println("Switching to Home Panel...");
     
-        moviePanel = new JPanel(new GridLayout(0, 3, 10, 10)); // 3 columns grid layout
+        moviePanel = new JPanel(new GridLayout(0, 3, 10, 10));// 3 columns grid layout
         loadMovies();
-        HomePage.add(moviePanel); // Add moviePanel to HomePage
-
-        // Refresh the display
-        HomePage.revalidate();
-        HomePage.repaint();
+        
 
         System.out.println("Switched to Home Panel successfully.");
     }
@@ -86,15 +84,16 @@ public class newForm extends javax.swing.JFrame {
             e.printStackTrace();
         }
     }
- 
-}
-    private void loadMovies() {
+    
+   }
+private void loadMovies() {
     // Load movies from the database and add them to the movie panel
     try (Connection conn = DriverManager.getConnection("jdbc:sqlite:movies_database.db");
-         PreparedStatement pstmt = conn.prepareStatement("SELECT * FROM movies")) {
+         PreparedStatement pstmt = conn.prepareStatement("SELECT m.movie_id, m.title, m.image_path, m.category, m.length_hours, m.num_actors, m.producer_id, AVG(r.rating) AS avg_rating\n" +
+                                                        "FROM movies m LEFT JOIN ratings r ON m.movie_id = r.movie_id\n" +
+                                                        "GROUP BY m.movie_id, m.title, m.image_path, m.category, m.length_hours, m.num_actors, m.producer_id")) {
 
         ResultSet rs = pstmt.executeQuery();
-        moviePanel.removeAll(); // Clear existing components
         
         System.out.println("Loading movies...");
         
@@ -102,21 +101,75 @@ public class newForm extends javax.swing.JFrame {
             int id = rs.getInt("movie_id");
             String title = rs.getString("title");
             String imagePath = rs.getString("image_path");
+            double avgRating = rs.getDouble("avg_rating");
+            String category = rs.getString("category");
+            int lengthHours = rs.getInt("length_hours");
+            int numActors = rs.getInt("num_actors");
+            String producerId = rs.getString("producer_id");
 
-            // Create a JLabel for title
-            JLabel titleLabel = new JLabel(title);
+            // Fetch producer name from the database using the producer ID
+            String producer = fetchProducerName(producerId);
 
             // Create an ImageIcon for the movie image
             imagePath = "/Movie_Images/" + imagePath;
-            ImageIcon imageIcon = new ImageIcon(getClass().getResource(imagePath));
+            ImageIcon imageIcon = new ImageIcon(getClass().getResource("icon.png"));
+
+            // Resize image to fit 80x120 box
+            Image image = imageIcon.getImage();
+            Image scaledImage = image.getScaledInstance(80, 120, Image.SCALE_SMOOTH);
+            ImageIcon scaledImageIcon = new ImageIcon(scaledImage);
 
             // Create a JLabel to display the movie image
-            JLabel imageLabel = new JLabel(imageIcon);
+            JLabel imageLabel = new JLabel(scaledImageIcon);
+
+            // Create labels for movie information
+            JLabel titleLabel = new JLabel(title);
+            JLabel categoryLabel = new JLabel("Category: " + category);
+            JLabel lengthLabel = new JLabel("Length (hours): " + lengthHours);
+            JLabel actorsLabel = new JLabel("Number of Actors: " + numActors);
+            JLabel producerLabel = new JLabel("Producer: " + producer);
+            JLabel ratingLabel = new JLabel("Avg Rating: " + String.format("%.2f", avgRating));
+
+            // Create a JButton for rating
+            JButton rateButton = new JButton("Rate");
+            rateButton.addActionListener(e -> {
+                // Prompt user for rating
+                String ratingStr = JOptionPane.showInputDialog(null, "Enter your rating (1-5):");
+                try {
+                    // Parse user rating
+                    int rating = Integer.parseInt(ratingStr);
+                    // Check if rating is within the allowed range
+                    if (rating >= 1 && rating <= 5) {
+                        // Notify user of their rating
+                        JOptionPane.showMessageDialog(null, "You rated '" + title + "' as " + rating);
+                        // Save user rating
+                        rateMovie(id,userID, rating);
+                    } else {
+                        // Rating out of range, display error message
+                        JOptionPane.showMessageDialog(null, "Invalid rating! Please enter a number between 1 and 5.");
+                    }
+                } catch (NumberFormatException ex) {
+                    // Handle invalid rating input
+                    JOptionPane.showMessageDialog(null, "Invalid rating! Please enter a valid number.");
+                }
+            });
 
             // Create a JPanel to hold each movie's information
             JPanel movieInfoPanel = new JPanel(new BorderLayout());
+            movieInfoPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10)); // Add padding
             movieInfoPanel.add(imageLabel, BorderLayout.CENTER);
-            movieInfoPanel.add(titleLabel, BorderLayout.SOUTH);
+
+            // Create a JPanel to hold text information
+            JPanel textPanel = new JPanel(new GridLayout(0, 1));
+            textPanel.add(titleLabel);
+            textPanel.add(categoryLabel);
+            textPanel.add(lengthLabel);
+            textPanel.add(actorsLabel);
+            textPanel.add(producerLabel);
+            textPanel.add(ratingLabel);
+            textPanel.add(rateButton); // Add rating button
+
+            movieInfoPanel.add(textPanel, BorderLayout.SOUTH);
 
             // Add the movie info panel to the movie panel
             moviePanel.add(movieInfoPanel);
@@ -126,6 +179,12 @@ public class newForm extends javax.swing.JFrame {
         moviePanel.revalidate();
         moviePanel.repaint();
         
+        topSection.add(moviePanel); // Add moviePanel to HomePage
+
+        // Refresh the display
+        topSection.revalidate();
+        topSection.repaint();
+        
         System.out.println("Movies loaded successfully.");
     } catch (SQLException ex) {
         System.err.println("Error loading movies: " + ex.getMessage());
@@ -133,12 +192,102 @@ public class newForm extends javax.swing.JFrame {
     }
 }
 
+private String fetchProducerName(String producerId) {
+    String producerName = null;
+    try (Connection conn = DriverManager.getConnection(DB_URL);
+         PreparedStatement pstmt = conn.prepareStatement("SELECT full_name FROM producers WHERE producer_id = ?")) {
+        pstmt.setString(1, producerId);
+        ResultSet rs = pstmt.executeQuery();
+        if (rs.next()) {
+            producerName = rs.getString("full_name");
+        }
+    } catch (SQLException ex) {
+        System.err.println("Error fetching producer name: " + ex.getMessage());
+        ex.printStackTrace();
+    }
+    return producerName;
+}
+private void userId(String username) {
+    String producerName = null;
+    try (Connection conn = DriverManager.getConnection(DB_URL);
+         PreparedStatement pstmt = conn.prepareStatement("SELECT user_id FROM users WHERE username= ?")) {
+        pstmt.setString(1, username);
+        ResultSet rs = pstmt.executeQuery();
+        if (rs.next()) {
+           userID = rs.getInt("user_id");
+        }
+    } catch (SQLException ex) {
+        System.err.println("Error fetching producer name: " + ex.getMessage());
+        ex.printStackTrace();
+    }
+ ;
+}
+
+
+// Function to save user rating to the database
+private boolean rateMovie(int movieId, int userId, int rating) {
+    // Check if the user has already rated the movie
+    if (hasUserRatedMovie(movieId, userId)) {
+        System.out.println("You have already rated this movie.");
+        JOptionPane.showMessageDialog(null, "You have already rated this movie");
+        return false;
+    }
+
+    Connection conn = null;
+    PreparedStatement pstmt = null;
+    try {
+        conn = DriverManager.getConnection(DB_URL);
+        String sql = "INSERT INTO ratings (movie_id, user_id, rating) VALUES (?, ?, ?)";
+        pstmt = conn.prepareStatement(sql);
+        pstmt.setInt(1, movieId);
+        pstmt.setInt(2, userId);
+        pstmt.setInt(3, rating);
+        int rowsInserted = pstmt.executeUpdate();
+        if (rowsInserted > 0) {
+            System.out.println("Rating saved successfully.");
+            return true;
+        } else {
+            System.err.println("Failed to save user rating.");
+            return false;
+        }
+    } catch (SQLException e) {
+        System.err.println("Error saving user rating: " + e.getMessage());
+        e.printStackTrace();
+        return false;
+    } finally {
+        try {
+            if (pstmt != null) pstmt.close();
+            if (conn != null) conn.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+private boolean hasUserRatedMovie(int movieId, int userId) {
+    String sql = "SELECT COUNT(*) FROM ratings WHERE movie_id = ? AND user_id = ?";
+    try (Connection conn = DriverManager.getConnection(DB_URL);
+         PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        pstmt.setInt(1, movieId);
+        pstmt.setInt(2, userId);
+        ResultSet rs = pstmt.executeQuery();
+        if (rs.next()) {
+            int count = rs.getInt(1);
+            return count > 0;
+        }
+    } catch (SQLException e) {
+        System.err.println("Error checking user rating: " + e.getMessage());
+    }
+    return false;
+}
 
 
 
-
-
-
+    
+    
+    
+    
+    
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -171,7 +320,11 @@ public class newForm extends javax.swing.JFrame {
         HomePage = new javax.swing.JPanel();
         UserLabel = new javax.swing.JLabel();
         jLabel1 = new javax.swing.JLabel();
-        jPanel1 = new javax.swing.JPanel();
+        topSection = new javax.swing.JPanel();
+        middleSection = new javax.swing.JPanel();
+        jLabel2 = new javax.swing.JLabel();
+        jLabel3 = new javax.swing.JLabel();
+        bottomSection = new javax.swing.JPanel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setPreferredSize(new java.awt.Dimension(795, 563));
@@ -189,7 +342,7 @@ public class newForm extends javax.swing.JFrame {
         });
 
         label1.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
-        label1.setFont(new java.awt.Font("Dialog", 0, 24)); // NOI18N
+        label1.setFont(new java.awt.Font("Dialog", 0, 36)); // NOI18N
         label1.setForeground(new java.awt.Color(216, 141, 0));
         label1.setMinimumSize(new java.awt.Dimension(70, 200));
         label1.setName(""); // NOI18N
@@ -197,6 +350,7 @@ public class newForm extends javax.swing.JFrame {
         label1.setText("Sign In");
 
         signInButton.setBackground(new java.awt.Color(216, 141, 0));
+        signInButton.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
         signInButton.setText("Sign In");
         signInButton.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -229,41 +383,43 @@ public class newForm extends javax.swing.JFrame {
         signInLayout.setHorizontalGroup(
             signInLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(signInLayout.createSequentialGroup()
-                .addGap(274, 274, 274)
-                .addGroup(signInLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                    .addGroup(signInLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                        .addComponent(UsernameSignin, javax.swing.GroupLayout.PREFERRED_SIZE, 217, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(label1, javax.swing.GroupLayout.PREFERRED_SIZE, 81, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGroup(javax.swing.GroupLayout.Alignment.LEADING, signInLayout.createSequentialGroup()
-                            .addGap(1, 1, 1)
-                            .addComponent(label7, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                        .addGroup(signInLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                            .addComponent(passwordSignin, javax.swing.GroupLayout.PREFERRED_SIZE, 216, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addGroup(javax.swing.GroupLayout.Alignment.LEADING, signInLayout.createSequentialGroup()
-                                .addGap(1, 1, 1)
-                                .addComponent(label8, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))))
-                    .addComponent(Signup, javax.swing.GroupLayout.PREFERRED_SIZE, 179, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(signInButton, javax.swing.GroupLayout.PREFERRED_SIZE, 218, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(222, Short.MAX_VALUE))
+                .addGap(524, 524, 524)
+                .addGroup(signInLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(signInLayout.createSequentialGroup()
+                        .addGap(1, 1, 1)
+                        .addGroup(signInLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(signInLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                .addComponent(UsernameSignin, javax.swing.GroupLayout.PREFERRED_SIZE, 351, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addComponent(signInButton, javax.swing.GroupLayout.PREFERRED_SIZE, 351, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addComponent(Signup, javax.swing.GroupLayout.PREFERRED_SIZE, 179, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addComponent(passwordSignin, javax.swing.GroupLayout.Alignment.TRAILING)
+                                .addGroup(javax.swing.GroupLayout.Alignment.LEADING, signInLayout.createSequentialGroup()
+                                    .addGap(109, 109, 109)
+                                    .addComponent(label1, javax.swing.GroupLayout.PREFERRED_SIZE, 113, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                            .addComponent(label8, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                    .addGroup(signInLayout.createSequentialGroup()
+                        .addComponent(label7, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 294, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addGap(722, 722, 722))
         );
         signInLayout.setVerticalGroup(
             signInLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(signInLayout.createSequentialGroup()
-                .addGap(135, 135, 135)
-                .addComponent(label1, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGap(177, 177, 177)
+                .addComponent(label1, javax.swing.GroupLayout.PREFERRED_SIZE, 58, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(8, 8, 8)
                 .addComponent(label7, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(UsernameSignin, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(UsernameSignin, javax.swing.GroupLayout.PREFERRED_SIZE, 41, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(label8, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(8, 8, 8)
-                .addComponent(passwordSignin, javax.swing.GroupLayout.PREFERRED_SIZE, 29, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(passwordSignin, javax.swing.GroupLayout.PREFERRED_SIZE, 41, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
-                .addComponent(signInButton)
-                .addGap(17, 17, 17)
-                .addComponent(Signup)
-                .addContainerGap(139, Short.MAX_VALUE))
+                .addComponent(signInButton, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(Signup, javax.swing.GroupLayout.PREFERRED_SIZE, 29, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(266, Short.MAX_VALUE))
         );
 
         tabs.addTab("signIN", signIn);
@@ -273,7 +429,7 @@ public class newForm extends javax.swing.JFrame {
         signUP.setAutoscrolls(true);
 
         label2.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
-        label2.setFont(new java.awt.Font("Dialog", 0, 24)); // NOI18N
+        label2.setFont(new java.awt.Font("Dialog", 0, 36)); // NOI18N
         label2.setForeground(new java.awt.Color(216, 141, 0));
         label2.setMinimumSize(new java.awt.Dimension(70, 200));
         label2.setName(""); // NOI18N
@@ -288,6 +444,7 @@ public class newForm extends javax.swing.JFrame {
         });
 
         signUpButton.setBackground(new java.awt.Color(216, 141, 0));
+        signUpButton.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
         signUpButton.setText("Sign Up");
         signUpButton.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -330,48 +487,52 @@ public class newForm extends javax.swing.JFrame {
         signUPLayout.setHorizontalGroup(
             signUPLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(signUPLayout.createSequentialGroup()
-                .addGap(289, 289, 289)
+                .addGap(546, 546, 546)
                 .addGroup(signUPLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                    .addComponent(UsernameSignup, javax.swing.GroupLayout.PREFERRED_SIZE, 196, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(Fullname, javax.swing.GroupLayout.PREFERRED_SIZE, 196, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(label2, javax.swing.GroupLayout.PREFERRED_SIZE, 90, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(passwordSignupConfirm, javax.swing.GroupLayout.PREFERRED_SIZE, 196, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(signUpButton, javax.swing.GroupLayout.PREFERRED_SIZE, 196, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(passwordSignup1, javax.swing.GroupLayout.PREFERRED_SIZE, 196, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(label9, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(label6, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, signUPLayout.createSequentialGroup()
-                        .addGap(2, 2, 2)
-                        .addComponent(label5, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, signUPLayout.createSequentialGroup()
-                        .addGap(1, 1, 1)
-                        .addComponent(label4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap(235, Short.MAX_VALUE))
+                    .addComponent(passwordSignup1)
+                    .addComponent(passwordSignupConfirm)
+                    .addComponent(signUpButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(signUPLayout.createSequentialGroup()
+                        .addGroup(signUPLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                            .addComponent(UsernameSignup, javax.swing.GroupLayout.PREFERRED_SIZE, 323, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(Fullname, javax.swing.GroupLayout.PREFERRED_SIZE, 323, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(label9, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(label6, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addGroup(javax.swing.GroupLayout.Alignment.LEADING, signUPLayout.createSequentialGroup()
+                                .addGap(87, 87, 87)
+                                .addComponent(label2, javax.swing.GroupLayout.PREFERRED_SIZE, 130, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addGroup(javax.swing.GroupLayout.Alignment.LEADING, signUPLayout.createSequentialGroup()
+                                .addGap(1, 1, 1)
+                                .addGroup(signUPLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addComponent(label4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                    .addComponent(label5, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))))
+                        .addGap(0, 0, Short.MAX_VALUE)))
+                .addGap(634, 634, 634))
         );
         signUPLayout.setVerticalGroup(
             signUPLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(signUPLayout.createSequentialGroup()
-                .addGap(68, 68, 68)
-                .addComponent(label2, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGap(140, 140, 140)
+                .addComponent(label2, javax.swing.GroupLayout.PREFERRED_SIZE, 52, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(30, 30, 30)
                 .addComponent(label9, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(Fullname, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(Fullname, javax.swing.GroupLayout.PREFERRED_SIZE, 38, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(label6, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(UsernameSignup, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(UsernameSignup, javax.swing.GroupLayout.PREFERRED_SIZE, 38, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(label5, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(passwordSignup1, javax.swing.GroupLayout.PREFERRED_SIZE, 29, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(passwordSignup1, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(label4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(passwordSignupConfirm, javax.swing.GroupLayout.PREFERRED_SIZE, 29, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(passwordSignupConfirm, javax.swing.GroupLayout.PREFERRED_SIZE, 34, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(18, 18, 18)
                 .addComponent(signUpButton)
-                .addContainerGap(113, Short.MAX_VALUE))
+                .addContainerGap(186, Short.MAX_VALUE))
         );
 
         tabs.addTab("SignUP", signUP);
@@ -387,47 +548,64 @@ public class newForm extends javax.swing.JFrame {
         UserLabel.setToolTipText("");
 
         jLabel1.setForeground(new java.awt.Color(216, 141, 0));
-        jLabel1.setText("Top rated");
+        jLabel1.setText("Adventure");
+
+        topSection.setLayout(new javax.swing.BoxLayout(topSection, javax.swing.BoxLayout.LINE_AXIS));
+
+        middleSection.setLayout(new javax.swing.BoxLayout(middleSection, javax.swing.BoxLayout.LINE_AXIS));
+
+        jLabel2.setForeground(new java.awt.Color(216, 141, 0));
+        jLabel2.setText("Comedy");
+
+        jLabel3.setForeground(new java.awt.Color(216, 141, 0));
+        jLabel3.setText("Romantic");
+
+        bottomSection.setLayout(new javax.swing.BoxLayout(bottomSection, javax.swing.BoxLayout.LINE_AXIS));
 
         javax.swing.GroupLayout HomePageLayout = new javax.swing.GroupLayout(HomePage);
         HomePage.setLayout(HomePageLayout);
         HomePageLayout.setHorizontalGroup(
             HomePageLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, HomePageLayout.createSequentialGroup()
-                .addContainerGap(632, Short.MAX_VALUE)
-                .addComponent(UserLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGroup(HomePageLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addGroup(HomePageLayout.createSequentialGroup()
+                        .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(UserLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, HomePageLayout.createSequentialGroup()
+                        .addGap(32, 32, 32)
+                        .addGroup(HomePageLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(jLabel1)
+                            .addComponent(topSection, javax.swing.GroupLayout.PREFERRED_SIZE, 1378, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(jLabel2)
+                            .addComponent(middleSection, javax.swing.GroupLayout.PREFERRED_SIZE, 1378, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(jLabel3)
+                            .addComponent(bottomSection, javax.swing.GroupLayout.PREFERRED_SIZE, 1378, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addGap(0, 15, Short.MAX_VALUE)))
                 .addGap(15, 15, 15))
-            .addGroup(HomePageLayout.createSequentialGroup()
-                .addGap(29, 29, 29)
-                .addComponent(jLabel1)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         HomePageLayout.setVerticalGroup(
             HomePageLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(HomePageLayout.createSequentialGroup()
-                .addGap(15, 15, 15)
+                .addContainerGap()
                 .addComponent(UserLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jLabel1)
-                .addContainerGap(461, Short.MAX_VALUE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(topSection, javax.swing.GroupLayout.PREFERRED_SIZE, 202, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jLabel2)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(middleSection, javax.swing.GroupLayout.PREFERRED_SIZE, 201, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jLabel3, javax.swing.GroupLayout.PREFERRED_SIZE, 25, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(bottomSection, javax.swing.GroupLayout.PREFERRED_SIZE, 208, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(15, Short.MAX_VALUE))
         );
 
         tabs.addTab("Home", HomePage);
 
-        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
-        jPanel1.setLayout(jPanel1Layout);
-        jPanel1Layout.setHorizontalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 720, Short.MAX_VALUE)
-        );
-        jPanel1Layout.setVerticalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 528, Short.MAX_VALUE)
-        );
-
-        tabs.addTab("", jPanel1);
-
-        getContentPane().add(tabs, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 0, 720, -1));
+        getContentPane().add(tabs, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 0, 1440, 790));
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
@@ -468,6 +646,7 @@ public class newForm extends javax.swing.JFrame {
         if (insertUserIntoDatabase(fullname, username, password)) {
             JOptionPane.showMessageDialog(null, "User signed up successfully.", "Success",
                 JOptionPane.INFORMATION_MESSAGE);
+            userId(username);
             switchToHomePanel();
 
         } else {
@@ -524,6 +703,7 @@ public class newForm extends javax.swing.JFrame {
                     JOptionPane.showMessageDialog(this, "User sign-in successful");
                     // Perform actions for user
                     UserLabel.setText(username);
+                    userId(username);
                     switchToHomePanel();
                 } else {
                     JOptionPane.showMessageDialog(this, "Invalid username or password");
@@ -593,8 +773,10 @@ public class newForm extends javax.swing.JFrame {
     private javax.swing.JLabel UserLabel;
     private javax.swing.JTextField UsernameSignin;
     private javax.swing.JTextField UsernameSignup;
+    private javax.swing.JPanel bottomSection;
     private javax.swing.JLabel jLabel1;
-    private javax.swing.JPanel jPanel1;
+    private javax.swing.JLabel jLabel2;
+    private javax.swing.JLabel jLabel3;
     private java.awt.Label label1;
     private java.awt.Label label2;
     private java.awt.Label label4;
@@ -603,6 +785,7 @@ public class newForm extends javax.swing.JFrame {
     private java.awt.Label label7;
     private java.awt.Label label8;
     private java.awt.Label label9;
+    private javax.swing.JPanel middleSection;
     private javax.swing.JPasswordField passwordSignin;
     private javax.swing.JPasswordField passwordSignup1;
     private javax.swing.JPasswordField passwordSignupConfirm;
@@ -611,5 +794,6 @@ public class newForm extends javax.swing.JFrame {
     private javax.swing.JPanel signUP;
     private javax.swing.JButton signUpButton;
     private javax.swing.JTabbedPane tabs;
+    private javax.swing.JPanel topSection;
     // End of variables declaration//GEN-END:variables
 }
