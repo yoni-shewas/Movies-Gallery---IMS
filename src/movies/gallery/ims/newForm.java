@@ -10,6 +10,11 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import javax.swing.JOptionPane;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.FlowLayout;
+
+
 
 /**
  *
@@ -21,6 +26,7 @@ public class newForm extends javax.swing.JFrame {
      * Creates new form newForm
      */
     static final String DB_URL = "jdbc:sqlite:movies_database.db";
+    private JPanel moviePanel;
     
     public newForm() {
         initComponents();
@@ -37,6 +43,18 @@ public class newForm extends javax.swing.JFrame {
 
     private void switchToHomePanel() {
         tabs.setSelectedComponent(HomePage);
+        
+        System.out.println("Switching to Home Panel...");
+    
+        moviePanel = new JPanel(new GridLayout(0, 3, 10, 10)); // 3 columns grid layout
+        loadMovies();
+        HomePage.add(moviePanel); // Add moviePanel to HomePage
+
+        // Refresh the display
+        HomePage.revalidate();
+        HomePage.repaint();
+
+        System.out.println("Switched to Home Panel successfully.");
     }
     
     private boolean insertUserIntoDatabase(String fullname, String username, String password) {
@@ -68,7 +86,55 @@ public class newForm extends javax.swing.JFrame {
             e.printStackTrace();
         }
     }
+ 
 }
+    private void loadMovies() {
+    // Load movies from the database and add them to the movie panel
+    try (Connection conn = DriverManager.getConnection("jdbc:sqlite:movies_database.db");
+         PreparedStatement pstmt = conn.prepareStatement("SELECT * FROM movies")) {
+
+        ResultSet rs = pstmt.executeQuery();
+        moviePanel.removeAll(); // Clear existing components
+        
+        System.out.println("Loading movies...");
+        
+        while (rs.next()) {
+            int id = rs.getInt("movie_id");
+            String title = rs.getString("title");
+            String imagePath = rs.getString("image_path");
+
+            // Create a JLabel for title
+            JLabel titleLabel = new JLabel(title);
+
+            // Create an ImageIcon for the movie image
+            imagePath = "/Movie_Images/" + imagePath;
+            ImageIcon imageIcon = new ImageIcon(getClass().getResource(imagePath));
+
+            // Create a JLabel to display the movie image
+            JLabel imageLabel = new JLabel(imageIcon);
+
+            // Create a JPanel to hold each movie's information
+            JPanel movieInfoPanel = new JPanel(new BorderLayout());
+            movieInfoPanel.add(imageLabel, BorderLayout.CENTER);
+            movieInfoPanel.add(titleLabel, BorderLayout.SOUTH);
+
+            // Add the movie info panel to the movie panel
+            moviePanel.add(movieInfoPanel);
+        }
+
+        // Refresh the display
+        moviePanel.revalidate();
+        moviePanel.repaint();
+        
+        System.out.println("Movies loaded successfully.");
+    } catch (SQLException ex) {
+        System.err.println("Error loading movies: " + ex.getMessage());
+        ex.printStackTrace();
+    }
+}
+
+
+
 
 
 
@@ -105,6 +171,7 @@ public class newForm extends javax.swing.JFrame {
         HomePage = new javax.swing.JPanel();
         UserLabel = new javax.swing.JLabel();
         jLabel1 = new javax.swing.JLabel();
+        jPanel1 = new javax.swing.JPanel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setPreferredSize(new java.awt.Dimension(795, 563));
@@ -177,7 +244,7 @@ public class newForm extends javax.swing.JFrame {
                                 .addComponent(label8, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))))
                     .addComponent(Signup, javax.swing.GroupLayout.PREFERRED_SIZE, 179, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(signInButton, javax.swing.GroupLayout.PREFERRED_SIZE, 218, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(297, Short.MAX_VALUE))
+                .addContainerGap(222, Short.MAX_VALUE))
         );
         signInLayout.setVerticalGroup(
             signInLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -279,7 +346,7 @@ public class newForm extends javax.swing.JFrame {
                     .addGroup(javax.swing.GroupLayout.Alignment.LEADING, signUPLayout.createSequentialGroup()
                         .addGap(1, 1, 1)
                         .addComponent(label4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap(310, Short.MAX_VALUE))
+                .addContainerGap(235, Short.MAX_VALUE))
         );
         signUPLayout.setVerticalGroup(
             signUPLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -326,36 +393,100 @@ public class newForm extends javax.swing.JFrame {
         HomePage.setLayout(HomePageLayout);
         HomePageLayout.setHorizontalGroup(
             HomePageLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(HomePageLayout.createSequentialGroup()
-                .addGap(33, 33, 33)
-                .addComponent(jLabel1)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 614, Short.MAX_VALUE)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, HomePageLayout.createSequentialGroup()
+                .addContainerGap(632, Short.MAX_VALUE)
                 .addComponent(UserLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(23, 23, 23))
+                .addGap(15, 15, 15))
+            .addGroup(HomePageLayout.createSequentialGroup()
+                .addGap(29, 29, 29)
+                .addComponent(jLabel1)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         HomePageLayout.setVerticalGroup(
             HomePageLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(HomePageLayout.createSequentialGroup()
-                .addGroup(HomePageLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(HomePageLayout.createSequentialGroup()
-                        .addGap(42, 42, 42)
-                        .addComponent(jLabel1))
-                    .addGroup(HomePageLayout.createSequentialGroup()
-                        .addGap(15, 15, 15)
-                        .addComponent(UserLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap(470, Short.MAX_VALUE))
+                .addGap(15, 15, 15)
+                .addComponent(UserLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jLabel1)
+                .addContainerGap(461, Short.MAX_VALUE))
         );
 
         tabs.addTab("Home", HomePage);
 
-        getContentPane().add(tabs, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 0, -1, -1));
+        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
+        jPanel1.setLayout(jPanel1Layout);
+        jPanel1Layout.setHorizontalGroup(
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 720, Short.MAX_VALUE)
+        );
+        jPanel1Layout.setVerticalGroup(
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 528, Short.MAX_VALUE)
+        );
+
+        tabs.addTab("", jPanel1);
+
+        getContentPane().add(tabs, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 0, 720, -1));
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    private void UsernameSigninActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_UsernameSigninActionPerformed
+    private void FullnameActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_FullnameActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_UsernameSigninActionPerformed
+    }//GEN-LAST:event_FullnameActionPerformed
+
+    private void passwordSignup1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_passwordSignup1ActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_passwordSignup1ActionPerformed
+
+    private void signUpButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_signUpButtonActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_signUpButtonActionPerformed
+
+    private void signUpButtonMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_signUpButtonMouseClicked
+        // TODO add your handling code here:
+        // TODO add your handling code here:
+        String fullname = Fullname.getText();
+        String username = UsernameSignup.getText();
+        String password = new String(passwordSignup1.getPassword());
+        String confirmPassword = new String(passwordSignupConfirm.getPassword());
+
+        // Check if any field is empty
+        if (fullname.isEmpty() || username.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
+            JOptionPane.showMessageDialog(null, "Please fill in all fields.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // Check if password and confirmed password match
+        if (!password.equals(confirmPassword)) {
+            JOptionPane.showMessageDialog(null, "Passwords do not match.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // Insert the new user into the database
+        if (insertUserIntoDatabase(fullname, username, password)) {
+            JOptionPane.showMessageDialog(null, "User signed up successfully.", "Success",
+                JOptionPane.INFORMATION_MESSAGE);
+            switchToHomePanel();
+
+        } else {
+            JOptionPane.showMessageDialog(null, "Failed to sign up user.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }//GEN-LAST:event_signUpButtonMouseClicked
+
+    private void UsernameSignupActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_UsernameSignupActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_UsernameSignupActionPerformed
+
+    private void SignupMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_SignupMouseClicked
+        // TODO add your handling code here:
+        switchToSignUpPanel();
+    }//GEN-LAST:event_SignupMouseClicked
+
+    private void signInButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_signInButtonActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_signInButtonActionPerformed
 
     private void signInButtonMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_signInButtonMouseClicked
         // TODO add your handling code here:
@@ -392,6 +523,7 @@ public class newForm extends javax.swing.JFrame {
                 if (rs.next()) {
                     JOptionPane.showMessageDialog(this, "User sign-in successful");
                     // Perform actions for user
+                    UserLabel.setText(username);
                     switchToHomePanel();
                 } else {
                     JOptionPane.showMessageDialog(this, "Invalid username or password");
@@ -404,72 +536,20 @@ public class newForm extends javax.swing.JFrame {
         } finally {
             try {
                 if (rs != null)
-                    rs.close();
+                rs.close();
                 if (stmt != null)
-                    stmt.close();
+                stmt.close();
                 if (conn != null)
-                    conn.close();
+                conn.close();
             } catch (SQLException se) {
                 se.printStackTrace();
             }
         }
     }//GEN-LAST:event_signInButtonMouseClicked
 
-    private void signInButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_signInButtonActionPerformed
+    private void UsernameSigninActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_UsernameSigninActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_signInButtonActionPerformed
-
-    private void SignupMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_SignupMouseClicked
-        // TODO add your handling code here:
-        switchToSignUpPanel();
-    }//GEN-LAST:event_SignupMouseClicked
-
-    private void UsernameSignupActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_UsernameSignupActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_UsernameSignupActionPerformed
-
-    private void signUpButtonMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_signUpButtonMouseClicked
-        // TODO add your handling code here:
-        // TODO add your handling code here:
-        String fullname = Fullname.getText();
-        String username = UsernameSignup.getText();
-        String password = new String(passwordSignup1.getPassword());
-        String confirmPassword = new String(passwordSignupConfirm.getPassword());
-
-        // Check if any field is empty
-        if (fullname.isEmpty() || username.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
-            JOptionPane.showMessageDialog(null, "Please fill in all fields.", "Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        // Check if password and confirmed password match
-        if (!password.equals(confirmPassword)) {
-            JOptionPane.showMessageDialog(null, "Passwords do not match.", "Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        // Insert the new user into the database
-        if (insertUserIntoDatabase(fullname, username, password)) {
-            JOptionPane.showMessageDialog(null, "User signed up successfully.", "Success",
-                    JOptionPane.INFORMATION_MESSAGE);
-            switchToHomePanel();
-
-        } else {
-            JOptionPane.showMessageDialog(null, "Failed to sign up user.", "Error", JOptionPane.ERROR_MESSAGE);
-        }
-    }//GEN-LAST:event_signUpButtonMouseClicked
-
-    private void signUpButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_signUpButtonActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_signUpButtonActionPerformed
-
-    private void passwordSignup1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_passwordSignup1ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_passwordSignup1ActionPerformed
-
-    private void FullnameActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_FullnameActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_FullnameActionPerformed
+    }//GEN-LAST:event_UsernameSigninActionPerformed
 
     /**
      * @param args the command line arguments
@@ -514,6 +594,7 @@ public class newForm extends javax.swing.JFrame {
     private javax.swing.JTextField UsernameSignin;
     private javax.swing.JTextField UsernameSignup;
     private javax.swing.JLabel jLabel1;
+    private javax.swing.JPanel jPanel1;
     private java.awt.Label label1;
     private java.awt.Label label2;
     private java.awt.Label label4;

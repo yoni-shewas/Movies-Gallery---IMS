@@ -109,6 +109,7 @@ public class MoviesGalleryIMS {
     java.awt.EventQueue.invokeLater(new Runnable() {
         public void run() {
             newForm frame = new newForm();
+            frame.setSize(742, 620);
             frame.setVisible(true);
         }
     });
