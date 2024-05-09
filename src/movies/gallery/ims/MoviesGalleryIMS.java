@@ -112,7 +112,7 @@ public class MoviesGalleryIMS {
     java.awt.EventQueue.invokeLater(new Runnable() {
         public void run() {
             newForm frame = new newForm();
-            frame.setSize(1443, 840);
+            frame.setSize(1443, 817);
             frame.setTitle("Movies Gallery Information Management System");
 
             ImageIcon icon = new ImageIcon("icon.png");

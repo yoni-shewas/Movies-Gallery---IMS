@@ -13,6 +13,8 @@ import javax.swing.JOptionPane;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.FlowLayout;
+import java.awt.event.KeyEvent;
+
 
 
 
@@ -35,10 +37,13 @@ public class newForm extends javax.swing.JFrame {
     }
     
    private void switchToSignInPanel() {
+    // Set focus on the JTextArea
+    UsernameSignin.requestFocusInWindow();
     tabs.setSelectedComponent(signIn);
 }
 
     private void switchToSignUpPanel() {
+        UsernameSignup.requestFocusInWindow();
         tabs.setSelectedComponent(signUP);
         
     }
@@ -87,110 +92,107 @@ public class newForm extends javax.swing.JFrame {
     
    }
 private void loadMovies() {
-    // Load movies from the database and add them to the movie panel
-    try (Connection conn = DriverManager.getConnection("jdbc:sqlite:movies_database.db");
-         PreparedStatement pstmt = conn.prepareStatement("SELECT m.movie_id, m.title, m.image_path, m.category, m.length_hours, m.num_actors, m.producer_id, AVG(r.rating) AS avg_rating\n" +
-                                                        "FROM movies m LEFT JOIN ratings r ON m.movie_id = r.movie_id\n" +
-                                                        "GROUP BY m.movie_id, m.title, m.image_path, m.category, m.length_hours, m.num_actors, m.producer_id")) {
+        // Load movies from the database and add them to the movie panel
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:movies_database.db");
+             PreparedStatement pstmt = conn.prepareStatement("SELECT m.movie_id, m.title, m.image_path, m.category, m.length_hours, m.num_actors, m.producer_id, AVG(r.rating) AS avg_rating\n" +
+                                                            "FROM movies m LEFT JOIN ratings r ON m.movie_id = r.movie_id\n" +
+                                                            "GROUP BY m.movie_id, m.title, m.image_path, m.category, m.length_hours, m.num_actors, m.producer_id")) {
 
-        ResultSet rs = pstmt.executeQuery();
-        
-        System.out.println("Loading movies...");
-        
-        while (rs.next()) {
-            int id = rs.getInt("movie_id");
-            String title = rs.getString("title");
-            String imagePath = rs.getString("image_path");
-            double avgRating = rs.getDouble("avg_rating");
-            String category = rs.getString("category");
-            int lengthHours = rs.getInt("length_hours");
-            int numActors = rs.getInt("num_actors");
-            String producerId = rs.getString("producer_id");
+            ResultSet rs = pstmt.executeQuery();
 
-            // Fetch producer name from the database using the producer ID
-            String producer = fetchProducerName(producerId);
+            System.out.println("Loading movies...");
 
-            // Create an ImageIcon for the movie image
-            imagePath = "/Movie_Images/" + imagePath;
-            ImageIcon imageIcon = new ImageIcon(getClass().getResource("icon.png"));
+            while (rs.next()) {
+                JPanel movieInfoPanel = new JPanel(); // Initialize inside the loop
+                movieInfoPanel.setLayout(new FlowLayout(FlowLayout.LEFT)); // Adjust layout manager
+                movieInfoPanel.setPreferredSize(new Dimension(500, 250)); // Set preferred size
 
-            // Resize image to fit 80x120 box
-            Image image = imageIcon.getImage();
-            Image scaledImage = image.getScaledInstance(80, 120, Image.SCALE_SMOOTH);
-            ImageIcon scaledImageIcon = new ImageIcon(scaledImage);
+                int id = rs.getInt("movie_id");
+                String title = rs.getString("title");
+                String imagePath = "/movies/gallery/ims/Movie_Images/" + rs.getString("image_path");
+                String category = rs.getString("category");
+                int lengthHours = rs.getInt("length_hours");
+                int numActors = rs.getInt("num_actors");
+                String producerId = rs.getString("producer_id");
+                String producer = fetchProducerName(producerId);
 
-            // Create a JLabel to display the movie image
-            JLabel imageLabel = new JLabel(scaledImageIcon);
+                ImageIcon imageIcon = new ImageIcon(getClass().getResource(imagePath));
+                Image scaledImage = imageIcon.getImage().getScaledInstance(145, 200, Image.SCALE_SMOOTH);
+                ImageIcon scaledImageIcon = new ImageIcon(scaledImage);
+                JLabel imageLabel = new JLabel(scaledImageIcon);
+                imageLabel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
-            // Create labels for movie information
-            JLabel titleLabel = new JLabel(title);
-            JLabel categoryLabel = new JLabel("Category: " + category);
-            JLabel lengthLabel = new JLabel("Length (hours): " + lengthHours);
-            JLabel actorsLabel = new JLabel("Number of Actors: " + numActors);
-            JLabel producerLabel = new JLabel("Producer: " + producer);
-            JLabel ratingLabel = new JLabel("Avg Rating: " + String.format("%.2f", avgRating));
+                JLabel titleLabel = new JLabel(title);
+                JLabel categoryLabel = new JLabel("Category: " + category);
+                JLabel lengthLabel = new JLabel("Length (hours): " + lengthHours);
+                JLabel actorsLabel = new JLabel("Number of Actors: " + numActors);
+                JLabel producerLabel = new JLabel("Producer: " + producer);
+                JLabel ratingLabel = new JLabel("Avg Rating: " + String.format("%.2f", rs.getDouble("avg_rating")));
 
-            // Create a JButton for rating
-            JButton rateButton = new JButton("Rate");
-            rateButton.addActionListener(e -> {
-                // Prompt user for rating
-                String ratingStr = JOptionPane.showInputDialog(null, "Enter your rating (1-5):");
-                try {
-                    // Parse user rating
-                    int rating = Integer.parseInt(ratingStr);
-                    // Check if rating is within the allowed range
-                    if (rating >= 1 && rating <= 5) {
-                        // Notify user of their rating
-                        JOptionPane.showMessageDialog(null, "You rated '" + title + "' as " + rating);
-                        // Save user rating
-                        rateMovie(id,userID, rating);
-                    } else {
-                        // Rating out of range, display error message
-                        JOptionPane.showMessageDialog(null, "Invalid rating! Please enter a number between 1 and 5.");
+                JButton rateButton = new JButton("Rate");
+                rateButton.addActionListener(e -> {
+                    String ratingStr = JOptionPane.showInputDialog(null, "Enter your rating (1-5):");
+                    try {
+                        int rating = Integer.parseInt(ratingStr);
+                        if (rating >= 1 && rating <= 5) {
+                            JOptionPane.showMessageDialog(null, "You rated '" + title + "' as " + rating);
+                            rateMovie(id, userID, rating);
+                        } else {
+                            JOptionPane.showMessageDialog(null, "Invalid rating! Please enter a number between 1 and 5.");
+                        }
+                    } catch (NumberFormatException ex) {
+                        JOptionPane.showMessageDialog(null, "Invalid rating! Please enter a valid number.");
                     }
-                } catch (NumberFormatException ex) {
-                    // Handle invalid rating input
-                    JOptionPane.showMessageDialog(null, "Invalid rating! Please enter a valid number.");
+                });
+
+                JPanel contentPanel = new JPanel(new BorderLayout());
+                JLabel paddingLabel = new JLabel(" "); // Add padding
+                contentPanel.add(paddingLabel, BorderLayout.NORTH);
+                JPanel textPanel = new JPanel(new GridLayout(0, 1));
+                textPanel.add(titleLabel);
+                textPanel.add(categoryLabel);
+                textPanel.add(lengthLabel);
+                textPanel.add(actorsLabel);
+                textPanel.add(producerLabel);
+                textPanel.add(ratingLabel);
+                JPanel ratingButtonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+                ratingButtonPanel.add(rateButton);
+                contentPanel.add(textPanel, BorderLayout.CENTER);
+                contentPanel.add(ratingButtonPanel, BorderLayout.SOUTH);
+
+                movieInfoPanel.add(imageLabel);
+                movieInfoPanel.add(contentPanel);
+
+                JPanel section;
+                switch (category) {
+                    case "Adventure":
+                        section = topSection;
+                        break;
+                    case "Comedy":
+                        section = middleSection;
+                        break;
+                    case "Romantic":
+                        section = bottomSection;
+                        break;
+                    default:
+                        section = topSection; // Default to top section if category is not recognized
+                        break;
                 }
-            });
 
-            // Create a JPanel to hold each movie's information
-            JPanel movieInfoPanel = new JPanel(new BorderLayout());
-            movieInfoPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10)); // Add padding
-            movieInfoPanel.add(imageLabel, BorderLayout.CENTER);
+                section.add(movieInfoPanel);
 
-            // Create a JPanel to hold text information
-            JPanel textPanel = new JPanel(new GridLayout(0, 1));
-            textPanel.add(titleLabel);
-            textPanel.add(categoryLabel);
-            textPanel.add(lengthLabel);
-            textPanel.add(actorsLabel);
-            textPanel.add(producerLabel);
-            textPanel.add(ratingLabel);
-            textPanel.add(rateButton); // Add rating button
+                section.revalidate();
+                section.repaint();
+            }
 
-            movieInfoPanel.add(textPanel, BorderLayout.SOUTH);
-
-            // Add the movie info panel to the movie panel
-            moviePanel.add(movieInfoPanel);
+            System.out.println("Movies loaded successfully.");
+        } catch (SQLException ex) {
+            System.err.println("Error loading movies: " + ex.getMessage());
+            ex.printStackTrace();
         }
-
-        // Refresh the display
-        moviePanel.revalidate();
-        moviePanel.repaint();
-        
-        topSection.add(moviePanel); // Add moviePanel to HomePage
-
-        // Refresh the display
-        topSection.revalidate();
-        topSection.repaint();
-        
-        System.out.println("Movies loaded successfully.");
-    } catch (SQLException ex) {
-        System.err.println("Error loading movies: " + ex.getMessage());
-        ex.printStackTrace();
     }
-}
+
+
 
 private String fetchProducerName(String producerId) {
     String producerName = null;
@@ -281,6 +283,63 @@ private boolean hasUserRatedMovie(int movieId, int userId) {
     return false;
 }
 
+public void  signIn(){
+        String username = UsernameSignin.getText();
+        String password = new String(passwordSignin.getPassword());
+
+        if (username.isEmpty() || password.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Inputs can not be empty");
+        }
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
+
+        try {
+            Class.forName("org.sqlite.JDBC");
+            conn = DriverManager.getConnection("jdbc:sqlite:movies_database.db");
+
+            String adminSql = "SELECT * FROM Admins WHERE username = ? AND password = ?";
+            stmt = conn.prepareStatement(adminSql);
+            stmt.setString(1, username);
+            stmt.setString(2, password);
+            rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                JOptionPane.showMessageDialog(this, "Admin sign-in successful");
+                // Perform actions for admin
+            } else {
+                String userSql = "SELECT * FROM users WHERE username = ? AND password = ?";
+                stmt = conn.prepareStatement(userSql);
+                stmt.setString(1, username);
+                stmt.setString(2, password);
+                rs = stmt.executeQuery();
+
+                if (rs.next()) {
+                    UserLabel.setText(username);
+                    userId(username);
+                    switchToHomePanel();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Invalid username or password");
+                }
+            }
+        } catch (SQLException se) {
+            se.printStackTrace();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        } finally {
+            try {
+                if (rs != null)
+                rs.close();
+                if (stmt != null)
+                stmt.close();
+                if (conn != null)
+                conn.close();
+            } catch (SQLException se) {
+                se.printStackTrace();
+            }
+        }
+}
+
 
 
     
@@ -369,6 +428,12 @@ private boolean hasUserRatedMovie(int movieId, int userId) {
         Signup.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 SignupMouseClicked(evt);
+            }
+        });
+
+        passwordSignin.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyPressed(java.awt.event.KeyEvent evt) {
+                passwordSigninKeyPressed(evt);
             }
         });
 
@@ -669,67 +734,19 @@ private boolean hasUserRatedMovie(int movieId, int userId) {
 
     private void signInButtonMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_signInButtonMouseClicked
         // TODO add your handling code here:
-        String username = UsernameSignin.getText();
-        String password = new String(passwordSignin.getPassword());
-
-        if (username.isEmpty() || password.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Inputs can not be empty");
-        }
-        Connection conn = null;
-        PreparedStatement stmt = null;
-        ResultSet rs = null;
-
-        try {
-            Class.forName("org.sqlite.JDBC");
-            conn = DriverManager.getConnection("jdbc:sqlite:movies_database.db");
-
-            String adminSql = "SELECT * FROM Admins WHERE username = ? AND password = ?";
-            stmt = conn.prepareStatement(adminSql);
-            stmt.setString(1, username);
-            stmt.setString(2, password);
-            rs = stmt.executeQuery();
-
-            if (rs.next()) {
-                JOptionPane.showMessageDialog(this, "Admin sign-in successful");
-                // Perform actions for admin
-            } else {
-                String userSql = "SELECT * FROM users WHERE username = ? AND password = ?";
-                stmt = conn.prepareStatement(userSql);
-                stmt.setString(1, username);
-                stmt.setString(2, password);
-                rs = stmt.executeQuery();
-
-                if (rs.next()) {
-                    JOptionPane.showMessageDialog(this, "User sign-in successful");
-                    // Perform actions for user
-                    UserLabel.setText(username);
-                    userId(username);
-                    switchToHomePanel();
-                } else {
-                    JOptionPane.showMessageDialog(this, "Invalid username or password");
-                }
-            }
-        } catch (SQLException se) {
-            se.printStackTrace();
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        } finally {
-            try {
-                if (rs != null)
-                rs.close();
-                if (stmt != null)
-                stmt.close();
-                if (conn != null)
-                conn.close();
-            } catch (SQLException se) {
-                se.printStackTrace();
-            }
-        }
+         signIn();  
     }//GEN-LAST:event_signInButtonMouseClicked
 
     private void UsernameSigninActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_UsernameSigninActionPerformed
         // TODO add your handling code here:
     }//GEN-LAST:event_UsernameSigninActionPerformed
+
+    private void passwordSigninKeyPressed(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_passwordSigninKeyPressed
+        // TODO add your handling code here:
+        if (evt.getKeyCode() == KeyEvent.VK_ENTER) {
+            signIn();
+        }
+    }//GEN-LAST:event_passwordSigninKeyPressed
 
     /**
      * @param args the command line arguments
