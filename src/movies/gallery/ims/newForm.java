@@ -14,6 +14,10 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.FlowLayout;
 import java.awt.event.KeyEvent;
+import javax.swing.BorderFactory;
+import java.awt.Insets;
+import javax.swing.border.Border;
+
 
 
 
@@ -30,6 +34,12 @@ public class newForm extends javax.swing.JFrame {
     static final String DB_URL = "jdbc:sqlite:movies_database.db";
     private JPanel moviePanel;
     private int userID;
+    
+    private JPanel[] topPanel = new JPanel[25];
+    private JPanel[] middlePanel = new JPanel[25];
+    private JPanel[] bottomPanel = new JPanel[25];
+    
+    int top = 0, middle = 0, bottom = 0;
     
     public newForm() {
         initComponents();
@@ -91,106 +101,352 @@ public class newForm extends javax.swing.JFrame {
     }
     
    }
+
 private void loadMovies() {
-        // Load movies from the database and add them to the movie panel
-        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:movies_database.db");
-             PreparedStatement pstmt = conn.prepareStatement("SELECT m.movie_id, m.title, m.image_path, m.category, m.length_hours, m.num_actors, m.producer_id, AVG(r.rating) AS avg_rating\n" +
-                                                            "FROM movies m LEFT JOIN ratings r ON m.movie_id = r.movie_id\n" +
-                                                            "GROUP BY m.movie_id, m.title, m.image_path, m.category, m.length_hours, m.num_actors, m.producer_id")) {
+    
 
-            ResultSet rs = pstmt.executeQuery();
+    // Load movies from the database and add them to the movie panel
+    try (Connection conn = DriverManager.getConnection("jdbc:sqlite:movies_database.db");
+         PreparedStatement pstmt = conn.prepareStatement("SELECT m.movie_id, m.title, m.image_path, m.category, m.length_hours, m.num_actors, m.producer_id, AVG(r.rating) AS avg_rating\n" +
+                                                        "FROM movies m LEFT JOIN ratings r ON m.movie_id = r.movie_id\n" +
+                                                        "GROUP BY m.movie_id, m.title, m.image_path, m.category, m.length_hours, m.num_actors, m.producer_id")) {
 
-            System.out.println("Loading movies...");
+        ResultSet rs = pstmt.executeQuery();
 
-            while (rs.next()) {
-                JPanel movieInfoPanel = new JPanel(); // Initialize inside the loop
-                movieInfoPanel.setLayout(new FlowLayout(FlowLayout.LEFT)); // Adjust layout manager
-                movieInfoPanel.setPreferredSize(new Dimension(500, 250)); // Set preferred size
+        System.out.println("Loading movies...");
 
-                int id = rs.getInt("movie_id");
-                String title = rs.getString("title");
-                String imagePath = "/movies/gallery/ims/Movie_Images/" + rs.getString("image_path");
-                String category = rs.getString("category");
-                int lengthHours = rs.getInt("length_hours");
-                int numActors = rs.getInt("num_actors");
-                String producerId = rs.getString("producer_id");
-                String producer = fetchProducerName(producerId);
-
+        while (rs.next()) {
+            int id = rs.getInt("movie_id");
+            String title = rs.getString("title");
+            String imagePath = "/movies/gallery/ims/Movie_Images/" + rs.getString("image_path");
+            String category = rs.getString("category");
+            int lengthHours = rs.getInt("length_hours");
+            int numActors = rs.getInt("num_actors");
+            String producerId = rs.getString("producer_id");
+            String producer = fetchProducerName(producerId);
+            JLabel imageLabel = null;
+            try {
                 ImageIcon imageIcon = new ImageIcon(getClass().getResource(imagePath));
-                Image scaledImage = imageIcon.getImage().getScaledInstance(145, 200, Image.SCALE_SMOOTH);
+                Image scaledImage = imageIcon.getImage().getScaledInstance(145, 180, Image.SCALE_SMOOTH);
                 ImageIcon scaledImageIcon = new ImageIcon(scaledImage);
-                JLabel imageLabel = new JLabel(scaledImageIcon);
+                imageLabel = new JLabel(scaledImageIcon);
                 imageLabel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-
-                JLabel titleLabel = new JLabel(title);
-                JLabel categoryLabel = new JLabel("Category: " + category);
-                JLabel lengthLabel = new JLabel("Length (hours): " + lengthHours);
-                JLabel actorsLabel = new JLabel("Number of Actors: " + numActors);
-                JLabel producerLabel = new JLabel("Producer: " + producer);
-                JLabel ratingLabel = new JLabel("Avg Rating: " + String.format("%.2f", rs.getDouble("avg_rating")));
-
-                JButton rateButton = new JButton("Rate");
-                rateButton.addActionListener(e -> {
-                    String ratingStr = JOptionPane.showInputDialog(null, "Enter your rating (1-5):");
-                    try {
-                        int rating = Integer.parseInt(ratingStr);
-                        if (rating >= 1 && rating <= 5) {
-                            JOptionPane.showMessageDialog(null, "You rated '" + title + "' as " + rating);
-                            rateMovie(id, userID, rating);
-                        } else {
-                            JOptionPane.showMessageDialog(null, "Invalid rating! Please enter a number between 1 and 5.");
-                        }
-                    } catch (NumberFormatException ex) {
-                        JOptionPane.showMessageDialog(null, "Invalid rating! Please enter a valid number.");
-                    }
-                });
-
-                JPanel contentPanel = new JPanel(new BorderLayout());
-                JLabel paddingLabel = new JLabel(" "); // Add padding
-                contentPanel.add(paddingLabel, BorderLayout.NORTH);
-                JPanel textPanel = new JPanel(new GridLayout(0, 1));
-                textPanel.add(titleLabel);
-                textPanel.add(categoryLabel);
-                textPanel.add(lengthLabel);
-                textPanel.add(actorsLabel);
-                textPanel.add(producerLabel);
-                textPanel.add(ratingLabel);
-                JPanel ratingButtonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-                ratingButtonPanel.add(rateButton);
-                contentPanel.add(textPanel, BorderLayout.CENTER);
-                contentPanel.add(ratingButtonPanel, BorderLayout.SOUTH);
-
-                movieInfoPanel.add(imageLabel);
-                movieInfoPanel.add(contentPanel);
-
-                JPanel section;
-                switch (category) {
-                    case "Adventure":
-                        section = topSection;
-                        break;
-                    case "Comedy":
-                        section = middleSection;
-                        break;
-                    case "Romantic":
-                        section = bottomSection;
-                        break;
-                    default:
-                        section = topSection; // Default to top section if category is not recognized
-                        break;
-                }
-
-                section.add(movieInfoPanel);
-
-                section.revalidate();
-                section.repaint();
+            } catch (NullPointerException e) {
+                // Handle the case where the image file is not found
+                System.err.println("Image file not found: " + e.getMessage());
+                e.printStackTrace();
+                // Load a default image
+                ImageIcon defaultImageIcon = new ImageIcon(getClass().getResource("icon.png"));
+                imageLabel = new JLabel(defaultImageIcon);
+                imageLabel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
             }
 
-            System.out.println("Movies loaded successfully.");
-        } catch (SQLException ex) {
-            System.err.println("Error loading movies: " + ex.getMessage());
-            ex.printStackTrace();
+
+            JLabel titleLabel = new JLabel(title);
+            JLabel categoryLabel = new JLabel("Category: " + category);
+            JLabel lengthLabel = new JLabel("Length (hours): " + lengthHours);
+            JLabel actorsLabel = new JLabel("Number of Actors: " + numActors);
+            JLabel producerLabel = new JLabel("Producer: " + producer);
+            JLabel ratingLabel = new JLabel("Avg Rating: " + String.format("%.2f", rs.getDouble("avg_rating")));
+
+            JButton rateButton = new JButton("Rate");
+            rateButton.addActionListener(e -> {
+                String ratingStr = JOptionPane.showInputDialog(null, "Enter your rating (1-5):");
+                try {
+                    int rating = Integer.parseInt(ratingStr);
+                    if (rating >= 1 && rating <= 5) {
+                        JOptionPane.showMessageDialog(null, "You rated '" + title + "' as " + rating);
+                        rateMovie(id, userID, rating);
+                    } else {
+                        JOptionPane.showMessageDialog(null, "Invalid rating! Please enter a number between 1 and 5.");
+                    }
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(null, "Invalid rating! Please enter a valid number.");
+                }
+            });
+
+            JPanel contentPanel = new JPanel(new BorderLayout());
+            JLabel paddingLabel = new JLabel(" "); // Add padding
+            contentPanel.add(paddingLabel, BorderLayout.NORTH);
+            JPanel textPanel = new JPanel(new GridLayout(0, 1));
+            textPanel.add(titleLabel);
+            textPanel.add(categoryLabel);
+            textPanel.add(lengthLabel);
+            textPanel.add(actorsLabel);
+            textPanel.add(producerLabel);
+            textPanel.add(ratingLabel);
+            JPanel ratingButtonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            ratingButtonPanel.add(rateButton);
+            contentPanel.add(textPanel, BorderLayout.CENTER);
+            contentPanel.add(ratingButtonPanel, BorderLayout.SOUTH);
+
+            JPanel movieInfoPanel = new JPanel(); // Initialize inside the loop
+            movieInfoPanel.setLayout(new BoxLayout(movieInfoPanel, BoxLayout.X_AXIS)); // Use BoxLayout for side-by-side alignment
+            movieInfoPanel.setPreferredSize(new Dimension(250, 185)); // Set preferred size
+            movieInfoPanel.setBorder(BorderFactory.createEmptyBorder()); // Ensure no extra space is taken up
+            
+            int leftPadding = 0; // Adjust this value as needed
+            int topPadding = 0;
+            int rightPadding = 12;
+            int bottomPadding = 0;
+            Border paddingBorder = BorderFactory.createEmptyBorder(topPadding, leftPadding, bottomPadding, rightPadding);
+
+            // Add the padding border to the movieInfoPanel
+            movieInfoPanel.setBorder(paddingBorder);
+
+            movieInfoPanel.add(imageLabel);
+            movieInfoPanel.add(contentPanel);
+
+            JPanel section;
+            
+            switch (category) {
+                case "Adventure":
+                    section = topSection;
+                    if (top < 4) {
+                        section.add(movieInfoPanel);
+                        topPanel[top] = movieInfoPanel;
+                        top++;
+                        if (top == 4) {
+                            JButton moreButton = new JButton("more");
+                            section.add(moreButton);
+                            final int mutableTop = top;
+                            moreButton.addActionListener(e -> {
+                                moreMovie(category, mutableTop);
+                            });
+                        }
+                        section.revalidate();
+                        section.repaint();
+                        
+                    } else {
+                        topPanel[top] = movieInfoPanel;
+                        top++;
+                    }
+                    break;
+                case "Comedy":
+                    section = middleSection;
+                    if (middle < 4) {
+                        middlePanel[middle] = movieInfoPanel;
+                        section.add(movieInfoPanel);
+                         middle++;
+                        if (middle == 4) {
+                            JButton moreButton = new JButton("more");
+                            section.add(moreButton);
+                            final int mutableMiddle = middle;
+                            moreButton.addActionListener(e -> {
+                                moreMovie(category, mutableMiddle);
+                            });
+                        }
+                        section.revalidate();
+                        section.repaint();
+                       
+                    } else {
+                        middlePanel[middle] = movieInfoPanel;
+                        middle++;
+                    }
+                    break;
+                case "Romantic":
+                    section = bottomSection;
+                   
+                    if (bottom < 4) {
+                        bottomPanel[bottom] = movieInfoPanel;
+                        section.add(movieInfoPanel);
+                        bottom++;
+                        if (bottom == 4) {
+                            JButton moreButton = new JButton("more");
+                            section.add(moreButton);
+                            final int mutableBottom = bottom;
+                            moreButton.addActionListener(e -> {
+                                moreMovie(category, mutableBottom);
+                            });
+                        }
+                        section.revalidate();
+                        section.repaint();
+                        
+                    } else {
+                        bottomPanel[bottom] = movieInfoPanel;
+                        bottom++;
+                    }
+                    break;
+                default:
+                    section = topSection; // Default to top section if category is not recognized
+                    break;
+            }
+        }
+
+        System.out.println("Movies loaded successfully.");
+    } catch (SQLException ex) {
+        System.err.println("Error loading movies: " + ex.getMessage());
+        ex.printStackTrace();
+    }
+}
+
+
+public void moreMovie(String category, int bottomIndex) {
+    final String finalCategory = category; // Declare category as final
+
+    JPanel section;
+    JPanel[] panelArray;
+    int panelArraySize = 0;
+    System.out.println(bottomIndex);
+
+    // Determine the section and corresponding panel array based on the category
+    switch (category) {
+        case "Adventure":
+            section = topSection;
+            panelArray = topPanel;
+            panelArraySize = top;
+            break;
+        case "Comedy":
+            section = middleSection;
+            panelArray = middlePanel;
+            panelArraySize = middle;
+            break;
+        case "Romantic":
+            section = bottomSection;
+            panelArray = bottomPanel;
+            panelArraySize = bottom;
+            break;
+        default:
+            section = topSection;
+            panelArray = topPanel;
+            break;
+    }
+
+    // Remove existing movie panels from the section
+    section.removeAll();
+
+    // Add saved data from the array (up to 4 items)
+    int endIndex = Math.min(bottomIndex + 4, panelArraySize);
+    for (int i = bottomIndex; i < endIndex; i++) {
+        if (i < panelArray.length && panelArray[i] != null) { // Check if i is within array bounds
+            section.add(panelArray[i]);
         }
     }
+    
+    JPanel morePanel = new JPanel(new BorderLayout());
+    morePanel.setPreferredSize(new Dimension(120, 60));
+        
+
+    // Create a "more" button if there are any remaining items left in the array
+    if (endIndex < panelArraySize) {
+        
+        JButton moreButton = new JButton("more");
+        moreButton.setPreferredSize(new Dimension(120, 40));
+        
+        
+        final int finalEndIndex = endIndex+4;
+        moreButton.addActionListener(e -> {
+            moreMovie(finalCategory, finalEndIndex);
+        });
+        
+        JButton backButton = new JButton("back");
+        backButton.setPreferredSize(new Dimension(120, 40));
+        backButton.addActionListener(e -> {
+            previousPage(finalCategory, bottomIndex);
+        });
+        
+        morePanel.add(moreButton, BorderLayout.NORTH);
+        morePanel.add(backButton, BorderLayout.SOUTH);
+        
+        section.add(morePanel);
+    }
+    else{
+        JButton backButton = new JButton("back");
+        backButton.setPreferredSize(new Dimension(120, 40)); // Set preferred size
+        backButton.addActionListener(e -> {
+            previousPage(finalCategory, bottomIndex);
+        });
+
+        morePanel.add(backButton, BorderLayout.CENTER);
+        section.add(backButton);
+
+    }
+
+    // Revalidate and repaint the section to update the UI
+    section.revalidate();
+    section.repaint();
+}
+
+
+private void previousPage(String category, int bottomIndex) {
+    final String finalCategory = category; // Declare category as final
+
+    JPanel section;
+    JPanel[] panelArray;
+    int panelArraySize = 0;
+    
+    
+    
+    
+
+    // Determine the section and corresponding panel array based on the category
+    switch (category) {
+        case "Adventure":
+            section = topSection;
+            panelArray = topPanel;
+            panelArraySize = top;
+            break;
+        case "Comedy":
+            section = middleSection;
+            panelArray = middlePanel; 
+            panelArraySize = middle;
+            break;
+        case "Romantic":
+            section = bottomSection;
+            panelArray = bottomPanel;
+            panelArraySize = bottom;
+            break;
+        default:
+            section = topSection;
+            panelArray = topPanel;
+            break;
+    }
+
+    // Remove existing movie panels from the section
+    section.removeAll();
+
+    // Calculate the starting index for the previous page
+    int startIndex = bottomIndex - 4;
+//    System.out.println("botttom I");
+    
+    
+
+    // Add saved data from the array (up to 4 items)
+    for (int i = startIndex; i < bottomIndex; i++) {
+        if (i >= 0 && i < panelArraySize && panelArray[i] != null) { // Check if i is within array bounds
+            section.add(panelArray[i]);
+        }
+    }
+
+    // Create a "more" button if there are any remaining items left in the array
+    if (startIndex >= 0) {
+        JButton moreButton = new JButton("more");
+        moreButton.setPreferredSize(new Dimension(120, 40));
+        moreButton.addActionListener(e -> {
+            moreMovie(finalCategory, bottomIndex);
+        });
+        section.add(moreButton);
+        
+        if(startIndex > 0){
+            JButton backButton = new JButton("back");
+            backButton.setPreferredSize(new Dimension(120, 40));
+            backButton.addActionListener(e -> {
+                previousPage(finalCategory, startIndex);
+            });
+            section.add(backButton);
+        }
+    }
+
+    // Revalidate and repaint the section to update the UI
+    section.revalidate();
+    section.repaint();
+}
+
+
+
+
+
+
 
 
 
@@ -384,9 +640,9 @@ public void  signIn(){
         jLabel2 = new javax.swing.JLabel();
         jLabel3 = new javax.swing.JLabel();
         bottomSection = new javax.swing.JPanel();
+        jPanel3 = new javax.swing.JPanel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
-        setPreferredSize(new java.awt.Dimension(795, 563));
         getContentPane().setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
 
         signIn.setBackground(new java.awt.Color(36, 37, 41));
@@ -484,7 +740,7 @@ public void  signIn(){
                 .addComponent(signInButton, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(Signup, javax.swing.GroupLayout.PREFERRED_SIZE, 29, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(266, Short.MAX_VALUE))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         tabs.addTab("signIN", signIn);
@@ -597,7 +853,7 @@ public void  signIn(){
                 .addComponent(passwordSignupConfirm, javax.swing.GroupLayout.PREFERRED_SIZE, 34, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
                 .addComponent(signUpButton)
-                .addContainerGap(186, Short.MAX_VALUE))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         tabs.addTab("SignUP", signUP);
@@ -615,6 +871,7 @@ public void  signIn(){
         jLabel1.setForeground(new java.awt.Color(216, 141, 0));
         jLabel1.setText("Adventure");
 
+        topSection.setPreferredSize(new java.awt.Dimension(1000000, 200));
         topSection.setLayout(new javax.swing.BoxLayout(topSection, javax.swing.BoxLayout.LINE_AXIS));
 
         middleSection.setLayout(new javax.swing.BoxLayout(middleSection, javax.swing.BoxLayout.LINE_AXIS));
@@ -631,22 +888,18 @@ public void  signIn(){
         HomePage.setLayout(HomePageLayout);
         HomePageLayout.setHorizontalGroup(
             HomePageLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, HomePageLayout.createSequentialGroup()
+            .addGroup(HomePageLayout.createSequentialGroup()
+                .addGap(32, 32, 32)
                 .addGroup(HomePageLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addGroup(HomePageLayout.createSequentialGroup()
-                        .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(UserLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, HomePageLayout.createSequentialGroup()
-                        .addGap(32, 32, 32)
-                        .addGroup(HomePageLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jLabel1)
-                            .addComponent(topSection, javax.swing.GroupLayout.PREFERRED_SIZE, 1378, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(jLabel2)
-                            .addComponent(middleSection, javax.swing.GroupLayout.PREFERRED_SIZE, 1378, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(jLabel3)
-                            .addComponent(bottomSection, javax.swing.GroupLayout.PREFERRED_SIZE, 1378, javax.swing.GroupLayout.PREFERRED_SIZE))
-                        .addGap(0, 15, Short.MAX_VALUE)))
-                .addGap(15, 15, 15))
+                    .addComponent(UserLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addGroup(HomePageLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                        .addComponent(jLabel2)
+                        .addComponent(middleSection, javax.swing.GroupLayout.DEFAULT_SIZE, 1378, Short.MAX_VALUE)
+                        .addComponent(jLabel3)
+                        .addComponent(bottomSection, javax.swing.GroupLayout.DEFAULT_SIZE, 1378, Short.MAX_VALUE)
+                        .addComponent(jLabel1)
+                        .addComponent(topSection, javax.swing.GroupLayout.DEFAULT_SIZE, 0, Short.MAX_VALUE)))
+                .addContainerGap(30, Short.MAX_VALUE))
         );
         HomePageLayout.setVerticalGroup(
             HomePageLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -669,6 +922,19 @@ public void  signIn(){
         );
 
         tabs.addTab("Home", HomePage);
+
+        javax.swing.GroupLayout jPanel3Layout = new javax.swing.GroupLayout(jPanel3);
+        jPanel3.setLayout(jPanel3Layout);
+        jPanel3Layout.setHorizontalGroup(
+            jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 1440, Short.MAX_VALUE)
+        );
+        jPanel3Layout.setVerticalGroup(
+            jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 755, Short.MAX_VALUE)
+        );
+
+        tabs.addTab("tab4", jPanel3);
 
         getContentPane().add(tabs, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 0, 1440, 790));
 
@@ -794,6 +1060,7 @@ public void  signIn(){
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
+    private javax.swing.JPanel jPanel3;
     private java.awt.Label label1;
     private java.awt.Label label2;
     private java.awt.Label label4;
