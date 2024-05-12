@@ -38,8 +38,11 @@ public class newForm extends javax.swing.JFrame {
     private JPanel[] topPanel = new JPanel[25];
     private JPanel[] middlePanel = new JPanel[25];
     private JPanel[] bottomPanel = new JPanel[25];
+    private int topPage=1, middlePage=1,bottomPage=1;
+    private boolean isDelete = false;
+    private boolean isEdit = false;
     
-    int top = 0, middle = 0, bottom = 0;
+    private int top = 0, middle = 0, bottom = 0;
     
     public newForm() {
         initComponents();
@@ -64,7 +67,7 @@ public class newForm extends javax.swing.JFrame {
         System.out.println("Switching to Home Panel...");
     
         moviePanel = new JPanel(new GridLayout(0, 3, 10, 10));// 3 columns grid layout
-        loadMovies();
+        loadMovies(false);
         
 
         System.out.println("Switched to Home Panel successfully.");
@@ -75,10 +78,10 @@ public class newForm extends javax.swing.JFrame {
         System.out.println("Switching to admin Panel...");
     
        
-        loadMovies();
+        loadMovies(true);
         
 
-        System.out.println("Switched to Home Panel successfully.");
+        System.out.println("Switched to admin Panel successfully.");
     }
     
     private boolean insertUserIntoDatabase(String fullname, String username, String password) {
@@ -113,9 +116,7 @@ public class newForm extends javax.swing.JFrame {
     
    }
 
-private void loadMovies() {
-    
-
+private void loadMovies(boolean isAdmin) {
     // Load movies from the database and add them to the movie panel
     try (Connection conn = DriverManager.getConnection("jdbc:sqlite:movies_database.db");
          PreparedStatement pstmt = conn.prepareStatement("SELECT m.movie_id, m.title, m.image_path, m.category, m.length_hours, m.num_actors, m.producer_id, AVG(r.rating) AS avg_rating\n" +
@@ -151,9 +152,7 @@ private void loadMovies() {
                 ImageIcon scaledImageIcon = new ImageIcon(scaledImage);
                 imageLabel = new JLabel(scaledImageIcon);
                 imageLabel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-                
             }
-
 
             JLabel titleLabel = new JLabel(title);
             JLabel categoryLabel = new JLabel("Category: " + category);
@@ -161,22 +160,6 @@ private void loadMovies() {
             JLabel actorsLabel = new JLabel("Number of Actors: " + numActors);
             JLabel producerLabel = new JLabel("Producer: " + producer);
             JLabel ratingLabel = new JLabel("Avg Rating: " + String.format("%.2f", rs.getDouble("avg_rating")));
-
-            JButton rateButton = new JButton("Rate");
-            rateButton.addActionListener(e -> {
-                String ratingStr = JOptionPane.showInputDialog(null, "Enter your rating (1-5):");
-                try {
-                    int rating = Integer.parseInt(ratingStr);
-                    if (rating >= 1 && rating <= 5) {
-                        JOptionPane.showMessageDialog(null, "You rated '" + title + "' as " + rating);
-                        rateMovie(id, userID, rating);
-                    } else {
-                        JOptionPane.showMessageDialog(null, "Invalid rating! Please enter a number between 1 and 5.");
-                    }
-                } catch (NumberFormatException ex) {
-                    JOptionPane.showMessageDialog(null, "Invalid rating! Please enter a valid number.");
-                }
-            });
 
             JPanel contentPanel = new JPanel(new BorderLayout());
             JLabel paddingLabel = new JLabel(" "); // Add padding
@@ -188,16 +171,13 @@ private void loadMovies() {
             textPanel.add(actorsLabel);
             textPanel.add(producerLabel);
             textPanel.add(ratingLabel);
-            JPanel ratingButtonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-            ratingButtonPanel.add(rateButton);
             contentPanel.add(textPanel, BorderLayout.CENTER);
-            contentPanel.add(ratingButtonPanel, BorderLayout.SOUTH);
 
             JPanel movieInfoPanel = new JPanel(); // Initialize inside the loop
             movieInfoPanel.setLayout(new BoxLayout(movieInfoPanel, BoxLayout.X_AXIS)); // Use BoxLayout for side-by-side alignment
             movieInfoPanel.setPreferredSize(new Dimension(250, 185)); // Set preferred size
             movieInfoPanel.setBorder(BorderFactory.createEmptyBorder()); // Ensure no extra space is taken up
-            
+
             int leftPadding = 0; // Adjust this value as needed
             int topPadding = 0;
             int rightPadding = 12;
@@ -206,15 +186,74 @@ private void loadMovies() {
 
             // Add the padding border to the movieInfoPanel
             movieInfoPanel.setBorder(paddingBorder);
-
-            movieInfoPanel.add(imageLabel);
-            movieInfoPanel.add(contentPanel);
-
-            JPanel section;
-            
+            JPanel section=null;
             switch (category) {
                 case "Adventure":
-                    section = topSection;
+                    section = isAdmin ? topSection1 : topSection;
+                    break;
+                case "Comedy":
+                    section = isAdmin ? middleSection2 : middleSection;
+                    break;
+                case "Romantic":
+                    section = bottomSection;
+                    
+                    break;
+                default:
+                    section = topSection; // Default to top section if category is not recognized
+                    break;
+            }
+            
+            final JButton deleteButton = new JButton("Delete");
+            final JButton editButton = new JButton("Edit");
+            if (isAdmin) {
+                // For admin, add edit and delete buttons
+                
+                
+                JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+                buttonPanel.add(editButton);
+                buttonPanel.add(deleteButton);
+                contentPanel.add(buttonPanel, BorderLayout.SOUTH);
+
+                
+
+            } else {
+                // For non-admin, add rate button
+                JButton rateButton = new JButton("Rate");
+                JPanel ratingButtonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+                ratingButtonPanel.add(rateButton);
+                contentPanel.add(ratingButtonPanel, BorderLayout.SOUTH);
+            }
+            movieInfoPanel.add(imageLabel);
+            movieInfoPanel.add(contentPanel);
+             
+            if(isAdmin){
+                final JPanel finalSection = section; // Declare section as final
+                deleteButton.addActionListener(e -> {
+                    // Perform deletion logic here
+                    deleteMovie(id);
+                    // Remove the content panel from the UI
+                    isDelete = true;
+                    finalSection.remove(movieInfoPanel);
+                    
+                    finalSection.revalidate();
+                    finalSection.repaint();
+                    // Revalidate and repaint the section to update the UI
+                    
+                });
+                if(isDelete){
+                    section.remove(movieInfoPanel);
+                    
+                    section.revalidate();
+                    section.repaint();
+                    isDelete = false;
+                }
+            }
+
+            
+
+            switch (category) {
+                case "Adventure":
+                    section = isAdmin ? topSection1 : topSection;
                     if (top < 4) {
                         section.add(movieInfoPanel);
                         topPanel[top] = movieInfoPanel;
@@ -224,34 +263,34 @@ private void loadMovies() {
                             section.add(moreButton);
                             final int mutableTop = top;
                             moreButton.addActionListener(e -> {
-                                moreMovie(category, mutableTop);
+                                moreMovie(category, mutableTop,isAdmin);
                             });
                         }
                         section.revalidate();
                         section.repaint();
-                        
+
                     } else {
                         topPanel[top] = movieInfoPanel;
                         top++;
                     }
                     break;
                 case "Comedy":
-                    section = middleSection;
+                    section = isAdmin ? middleSection2 : middleSection;
                     if (middle < 4) {
                         middlePanel[middle] = movieInfoPanel;
                         section.add(movieInfoPanel);
-                         middle++;
+                        middle++;
                         if (middle == 4) {
                             JButton moreButton = new JButton("more");
                             section.add(moreButton);
                             final int mutableMiddle = middle;
                             moreButton.addActionListener(e -> {
-                                moreMovie(category, mutableMiddle);
+                                moreMovie(category, mutableMiddle,isAdmin);
                             });
                         }
                         section.revalidate();
                         section.repaint();
-                       
+
                     } else {
                         middlePanel[middle] = movieInfoPanel;
                         middle++;
@@ -259,7 +298,11 @@ private void loadMovies() {
                     break;
                 case "Romantic":
                     section = bottomSection;
-                   
+//                    if (isAdmin) {
+//                        // Add edit and delete buttons for admin
+//                        buttonPanel.add(editButton);
+//                        buttonPanel.add(deleteButton);
+//                    }
                     if (bottom < 4) {
                         bottomPanel[bottom] = movieInfoPanel;
                         section.add(movieInfoPanel);
@@ -269,12 +312,12 @@ private void loadMovies() {
                             section.add(moreButton);
                             final int mutableBottom = bottom;
                             moreButton.addActionListener(e -> {
-                                moreMovie(category, mutableBottom);
+                                moreMovie(category, mutableBottom,isAdmin);
                             });
                         }
                         section.revalidate();
                         section.repaint();
-                        
+
                     } else {
                         bottomPanel[bottom] = movieInfoPanel;
                         bottom++;
@@ -284,6 +327,7 @@ private void loadMovies() {
                     section = topSection; // Default to top section if category is not recognized
                     break;
             }
+            
         }
 
         System.out.println("Movies loaded successfully.");
@@ -293,136 +337,200 @@ private void loadMovies() {
     }
 }
 
+private boolean deleteMovie(int movieId) {
+    try (Connection conn = DriverManager.getConnection("jdbc:sqlite:movies_database.db");
+         PreparedStatement pstmt = conn.prepareStatement("DELETE FROM movies WHERE movie_id = ?")) {
+        pstmt.setInt(1, movieId);
+        int rowsDeleted = pstmt.executeUpdate();
+        
+        return rowsDeleted > 0;
+    } catch (SQLException ex) {
+        System.err.println("Error deleting movie: " + ex.getMessage());
+        ex.printStackTrace();
+        return false;
+    }
+}
 
-public void moreMovie(String category, int bottomIndex) {
+private void editArrangment(){
+     // Clear the input fields
+                    movieName.setText(" ");
+                    movieLength.setText(" ");
+                    movieNumberOfActors.setText(" ");
+                    movieImagePath.setText("");
+                    movieCategory.setSelectedIndex(0); 
+                    movieProducer.setSelectedIndex(0); 
+                    // Reset the label and button text
+                    addMovies.setText("Add");
+                    jLabel15.setText("Add Movie");
+}
+
+
+
+public void moreMovie(String category, int bottomIndex, boolean isAdmin) {
     final String finalCategory = category; // Declare category as final
 
     JPanel section;
     JPanel[] panelArray;
     int panelArraySize = 0;
     System.out.println(bottomIndex);
+    
+    
+    
+   
+    int currentPage=0;
+    // Create a panel to hold the buttons vertically
+    JPanel buttonPanel = new JPanel();
+    buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.Y_AXIS));
 
     // Determine the section and corresponding panel array based on the category
     switch (category) {
         case "Adventure":
-            section = topSection;
+            section = isAdmin ? topSection1 : topSection;
             panelArray = topPanel;
             panelArraySize = top;
+            topPage++;
+            currentPage = topPage;
             break;
         case "Comedy":
-            section = middleSection;
+            section = isAdmin ? middleSection2 : middleSection;
             panelArray = middlePanel;
             panelArraySize = middle;
+            middlePage++;
+            currentPage = middlePage;
             break;
         case "Romantic":
             section = bottomSection;
             panelArray = bottomPanel;
             panelArraySize = bottom;
+            bottomPage++;
+            currentPage = bottomPage;
             break;
         default:
             section = topSection;
             panelArray = topPanel;
             break;
     }
+    
+    // Calculate the total number of pages
+    int totalPages = (panelArraySize - 1) / 4 + 1;
+    
+    // Create a label to display the page number information
+    JLabel pageLabel = new JLabel(currentPage + "/" + totalPages + " Page");
+    pageLabel.setHorizontalAlignment(SwingConstants.CENTER); // Center align the text
+    pageLabel.setPreferredSize(new Dimension(120, 20)); // Set preferred size
+    pageLabel.setForeground(Color.GRAY);
 
     // Remove existing movie panels from the section
     section.removeAll();
 
     // Add saved data from the array (up to 4 items)
     int endIndex = Math.min(bottomIndex + 4, panelArraySize);
+    System.out.println(endIndex);
     for (int i = bottomIndex; i < endIndex; i++) {
         if (i < panelArray.length && panelArray[i] != null) { // Check if i is within array bounds
             section.add(panelArray[i]);
         }
     }
-    
-    JPanel morePanel = new JPanel(new BorderLayout());
-    morePanel.setPreferredSize(new Dimension(120, 60));
         
-
     // Create a "more" button if there are any remaining items left in the array
     if (endIndex < panelArraySize) {
-        
         JButton moreButton = new JButton("more");
         moreButton.setPreferredSize(new Dimension(120, 40));
-        
-        
-        final int finalEndIndex = endIndex+4;
+        final int finalEndIndex = endIndex;
         moreButton.addActionListener(e -> {
-            moreMovie(finalCategory, finalEndIndex);
+            moreMovie(finalCategory, finalEndIndex, isAdmin);
         });
-        
+        buttonPanel.add(moreButton);
+        buttonPanel.add(Box.createVerticalStrut(10)); // Add gap
+
         JButton backButton = new JButton("back");
         backButton.setPreferredSize(new Dimension(120, 40));
         backButton.addActionListener(e -> {
-            previousPage(finalCategory, bottomIndex);
+            previousPage(finalCategory, bottomIndex, isAdmin);
         });
-        
-        morePanel.add(moreButton, BorderLayout.NORTH);
-        morePanel.add(backButton, BorderLayout.SOUTH);
-        
-        section.add(morePanel);
+        buttonPanel.add(backButton);
     }
-    else{
+    else {
+        // Add only back button on the last page
         JButton backButton = new JButton("back");
-        backButton.setPreferredSize(new Dimension(120, 40)); // Set preferred size
+        backButton.setPreferredSize(new Dimension(120, 40));
         backButton.addActionListener(e -> {
-            previousPage(finalCategory, bottomIndex);
+            previousPage(finalCategory, bottomIndex, isAdmin);
         });
-
-        morePanel.add(backButton, BorderLayout.CENTER);
-        section.add(backButton);
-
+        buttonPanel.add(backButton);
     }
+
+    // Add the page label below the buttons
+    buttonPanel.add(pageLabel);
+
+    // Add the button panel to the section
+    section.add(buttonPanel);
 
     // Revalidate and repaint the section to update the UI
     section.revalidate();
     section.repaint();
 }
 
-
-private void previousPage(String category, int bottomIndex) {
+private void previousPage(String category, int bottomIndex, boolean isAdmin) {
     final String finalCategory = category; // Declare category as final
 
     JPanel section;
     JPanel[] panelArray;
     int panelArraySize = 0;
+
     
-    
-    
-    
+    // Calculate the current page number
+    int currentPage = 0;
+
+    // Create a panel to hold the buttons vertically
+    JPanel buttonPanel = new JPanel();
+    buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.Y_AXIS));
 
     // Determine the section and corresponding panel array based on the category
     switch (category) {
         case "Adventure":
-            section = topSection;
+            section = isAdmin ? topSection1 : topSection;
             panelArray = topPanel;
             panelArraySize = top;
+            topPage--;
+            currentPage = topPage;
             break;
         case "Comedy":
-            section = middleSection;
-            panelArray = middlePanel; 
+            section = isAdmin ? middleSection2 : middleSection;
+            panelArray = middlePanel;
             panelArraySize = middle;
+            middlePage--;
+            currentPage = middlePage;
             break;
         case "Romantic":
             section = bottomSection;
             panelArray = bottomPanel;
             panelArraySize = bottom;
+            bottomPage--;
+            currentPage = bottomPage;
             break;
         default:
             section = topSection;
             panelArray = topPanel;
             break;
     }
+    
+    // Calculate the total number of pages
+    int totalPages = (panelArraySize - 1) / 4 + 1;
+
+    
+
+    // Create a label to display the page number information
+    JLabel pageLabel = new JLabel(currentPage + "/" + totalPages + " Page");
+    pageLabel.setHorizontalAlignment(SwingConstants.CENTER); // Center align the text
+    pageLabel.setPreferredSize(new Dimension(120, 20)); // Set preferred size
+    pageLabel.setForeground(Color.GRAY);
 
     // Remove existing movie panels from the section
     section.removeAll();
 
     // Calculate the starting index for the previous page
     int startIndex = bottomIndex - 4;
-//    System.out.println("botttom I");
-    
-    
 
     // Add saved data from the array (up to 4 items)
     for (int i = startIndex; i < bottomIndex; i++) {
@@ -436,19 +544,35 @@ private void previousPage(String category, int bottomIndex) {
         JButton moreButton = new JButton("more");
         moreButton.setPreferredSize(new Dimension(120, 40));
         moreButton.addActionListener(e -> {
-            moreMovie(finalCategory, bottomIndex);
+            moreMovie(finalCategory, bottomIndex, isAdmin);
         });
-        section.add(moreButton);
-        
-        if(startIndex > 0){
+        buttonPanel.add(moreButton);
+        buttonPanel.add(Box.createVerticalStrut(10)); // Add gap
+
+        if (startIndex > 0) {
             JButton backButton = new JButton("back");
             backButton.setPreferredSize(new Dimension(120, 40));
             backButton.addActionListener(e -> {
-                previousPage(finalCategory, startIndex);
+                previousPage(finalCategory, startIndex, isAdmin);
             });
-            section.add(backButton);
+            buttonPanel.add(backButton);
         }
     }
+    else {
+        // Add only back button on the first page
+        JButton backButton = new JButton("back");
+        backButton.setPreferredSize(new Dimension(120, 40));
+        backButton.addActionListener(e -> {
+            previousPage(finalCategory, startIndex, isAdmin);
+        });
+        buttonPanel.add(backButton);
+    }
+
+    // Add the page label below the buttons
+    buttonPanel.add(pageLabel);
+
+    // Add the button panel to the section
+    section.add(buttonPanel);
 
     // Revalidate and repaint the section to update the UI
     section.revalidate();
@@ -591,7 +715,7 @@ public void  signIn(){
             rs = stmt.executeQuery();
 
             if (rs.next()) {
-                JOptionPane.showMessageDialog(this, "Admin sign-in successful");
+//                JOptionPane.showMessageDialog(this, "Admin sign-in successful");
                 AdminrLabel.setText(username);
                 switchToAdminPanel();
                 // Perform actions for admin
@@ -786,40 +910,45 @@ private boolean isUsernameUnique(String username, String table) {
                 .addGap(524, 524, 524)
                 .addGroup(signInLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(signInLayout.createSequentialGroup()
-                        .addGap(1, 1, 1)
-                        .addGroup(signInLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addGroup(signInLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                                .addComponent(UsernameSignin, javax.swing.GroupLayout.PREFERRED_SIZE, 351, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addComponent(signInButton, javax.swing.GroupLayout.PREFERRED_SIZE, 351, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addComponent(Signup, javax.swing.GroupLayout.PREFERRED_SIZE, 179, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addComponent(passwordSignin, javax.swing.GroupLayout.Alignment.TRAILING)
-                                .addGroup(javax.swing.GroupLayout.Alignment.LEADING, signInLayout.createSequentialGroup()
-                                    .addGap(109, 109, 109)
-                                    .addComponent(label1, javax.swing.GroupLayout.PREFERRED_SIZE, 113, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                            .addComponent(label8, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                        .addComponent(UsernameSignin, javax.swing.GroupLayout.PREFERRED_SIZE, 351, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                     .addGroup(signInLayout.createSequentialGroup()
-                        .addComponent(label7, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 294, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addGap(722, 722, 722))
+                        .addGroup(signInLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(signInLayout.createSequentialGroup()
+                                .addGap(1, 1, 1)
+                                .addGroup(signInLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addGroup(signInLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                        .addComponent(Signup, javax.swing.GroupLayout.PREFERRED_SIZE, 179, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addComponent(signInButton, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 351, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addGroup(javax.swing.GroupLayout.Alignment.LEADING, signInLayout.createSequentialGroup()
+                                            .addGap(99, 99, 99)
+                                            .addComponent(label1, javax.swing.GroupLayout.PREFERRED_SIZE, 113, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                                    .addComponent(label8, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                    .addComponent(passwordSignin, javax.swing.GroupLayout.PREFERRED_SIZE, 351, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addGap(0, 0, Short.MAX_VALUE))
+                            .addGroup(signInLayout.createSequentialGroup()
+                                .addComponent(label7, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 294, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                        .addGap(689, 689, 689))))
         );
         signInLayout.setVerticalGroup(
             signInLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(signInLayout.createSequentialGroup()
-                .addGap(177, 177, 177)
+                .addGap(175, 175, 175)
                 .addComponent(label1, javax.swing.GroupLayout.PREFERRED_SIZE, 58, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(8, 8, 8)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(label7, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(UsernameSignin, javax.swing.GroupLayout.PREFERRED_SIZE, 41, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(label8, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(8, 8, 8)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(passwordSignin, javax.swing.GroupLayout.PREFERRED_SIZE, 41, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
+                .addGap(16, 16, 16)
                 .addComponent(signInButton, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(Signup, javax.swing.GroupLayout.PREFERRED_SIZE, 29, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap(277, Short.MAX_VALUE))
         );
 
         tabs.addTab("signIN", signIn);
@@ -986,19 +1115,19 @@ private boolean isUsernameUnique(String username, String table) {
                     .addComponent(jLabel1)
                     .addComponent(topSection, javax.swing.GroupLayout.DEFAULT_SIZE, 0, Short.MAX_VALUE)
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, HomePageLayout.createSequentialGroup()
-                        .addComponent(UserLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(UserLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 95, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(logout1)))
-                .addContainerGap(433, Short.MAX_VALUE))
+                .addContainerGap(193, Short.MAX_VALUE))
         );
         HomePageLayout.setVerticalGroup(
             HomePageLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(HomePageLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(HomePageLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(UserLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(logout1))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                    .addComponent(logout1)
+                    .addComponent(UserLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(8, 8, 8)
                 .addComponent(jLabel1)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(topSection, javax.swing.GroupLayout.PREFERRED_SIZE, 202, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -1010,7 +1139,7 @@ private boolean isUsernameUnique(String username, String table) {
                 .addComponent(jLabel3, javax.swing.GroupLayout.PREFERRED_SIZE, 25, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(bottomSection, javax.swing.GroupLayout.PREFERRED_SIZE, 208, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(26, Short.MAX_VALUE))
+                .addContainerGap(24, Short.MAX_VALUE))
         );
 
         tabs.addTab("Home", HomePage);
@@ -1166,15 +1295,15 @@ private boolean isUsernameUnique(String username, String table) {
                                                     .addComponent(jLabel11, javax.swing.GroupLayout.PREFERRED_SIZE, 114, javax.swing.GroupLayout.PREFERRED_SIZE)))
                                             .addComponent(jLabel10, javax.swing.GroupLayout.PREFERRED_SIZE, 78, javax.swing.GroupLayout.PREFERRED_SIZE))
                                         .addGap(26, 26, 26)))
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 294, Short.MAX_VALUE)
-                                .addComponent(jSeparator1, javax.swing.GroupLayout.PREFERRED_SIZE, 66, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addGap(105, 105, 105)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 218, Short.MAX_VALUE)
+                                .addComponent(jSeparator1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addGap(168, 168, 168)
                                 .addGroup(adminPageLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                                     .addComponent(label10, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                                     .addComponent(label11, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                                     .addComponent(label12, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addGroup(adminPageLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                .addGroup(adminPageLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                                     .addGroup(adminPageLayout.createSequentialGroup()
                                         .addGroup(adminPageLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                                             .addComponent(addAdmin, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -1184,9 +1313,9 @@ private boolean isUsernameUnique(String username, String table) {
                                         .addGap(286, 286, 286))
                                     .addGroup(adminPageLayout.createSequentialGroup()
                                         .addComponent(jLabel16, javax.swing.GroupLayout.PREFERRED_SIZE, 103, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 402, Short.MAX_VALUE)
-                                        .addComponent(AdminrLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 79, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addComponent(AdminrLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 88, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                                         .addComponent(logout))))
                             .addComponent(topSection1, javax.swing.GroupLayout.DEFAULT_SIZE, 0, Short.MAX_VALUE)
                             .addComponent(middleSection2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
@@ -1280,7 +1409,7 @@ private boolean isUsernameUnique(String username, String table) {
     }//GEN-LAST:event_signUpButtonActionPerformed
 
     private void signUpButtonMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_signUpButtonMouseClicked
-        // TODO add your handling code here:
+
         // TODO add your handling code here:
         String fullname = Fullname.getText();
         String username = UsernameSignup.getText();
@@ -1298,6 +1427,13 @@ private boolean isUsernameUnique(String username, String table) {
             JOptionPane.showMessageDialog(null, "Passwords do not match.", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
+        
+        // Check if the username exists in either the user or admin database
+        if (isUsernameUnique(username, "admins")||isUsernameUnique(username, "users")) {
+            JOptionPane.showMessageDialog(null, "Username already taken.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        
 
         // Insert the new user into the database
         if (insertUserIntoDatabase(fullname, username, password)) {
@@ -1311,6 +1447,7 @@ private boolean isUsernameUnique(String username, String table) {
         } else {
             JOptionPane.showMessageDialog(null, "Failed to sign up user.", "Error", JOptionPane.ERROR_MESSAGE);
         }
+        
     }//GEN-LAST:event_signUpButtonMouseClicked
 
     private void UsernameSignupActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_UsernameSignupActionPerformed
@@ -1365,8 +1502,8 @@ private boolean isUsernameUnique(String username, String table) {
             try {
                 movieLength = Integer.parseInt(movieLengthStr);
                 numActors = Integer.parseInt(numActorsStr);
-                if(movieLength<0&&numActors<0){
-                    JOptionPane.showMessageDialog(null, "Please enter a valid number for movie length and number of actors.");
+                if(movieLength<0 || numActors<0){
+                    JOptionPane.showMessageDialog(null, "Please enter a valid number for movie length or number of actors.");
                     return;
                 }
             } catch (NumberFormatException ex) {
@@ -1374,31 +1511,57 @@ private boolean isUsernameUnique(String username, String table) {
                 JOptionPane.showMessageDialog(null, "Please enter a valid number for movie length and number of actors.");
                 return; // Exit the method if numeric validation fails
             }
+            
+            if (isEdit) {
+                // Update the existing movie details in the database
+                try (Connection conn = DriverManager.getConnection("jdbc:sqlite:movies_database.db");
+                     PreparedStatement pstmt = conn.prepareStatement("UPDATE movies SET title=?, length_hours=?, category=?, num_actors=?, producer_id=?, image_path=? WHERE movie_id=?")) {
+                    String producerId = fetchProducerId(producer);
+                    pstmt.setString(1, name);
+                    pstmt.setString(2, movieLengthStr);
+                    pstmt.setString(3, category);
+                    pstmt.setString(4, numActorsStr);
+                    pstmt.setString(5, producerId);
+                    pstmt.setString(6, imagePath);
+//                    pstmt.setInt(7, movieId); // Assuming movieId is the ID of the movie being edited
 
-        // Perform validation here if needed
+                    int rowsUpdated = pstmt.executeUpdate();
+                    if (rowsUpdated > 0) {
+                        JOptionPane.showMessageDialog(null, "Movie updated successfully.");
+                    } else {
+                        JOptionPane.showMessageDialog(null, "Failed to update movie.");
+                    }
+                    isEdit = false;
+                    editArrangment();
+                } catch (SQLException ex) {
+                    System.err.println("Error updating movie: " + ex.getMessage());
+                    ex.printStackTrace();
+                    isEdit = false;
+                }
+    }   else {
+    // Insert a new movie into the database
+            try (Connection conn = DriverManager.getConnection("jdbc:sqlite:movies_database.db");
+                 PreparedStatement pstmt = conn.prepareStatement("INSERT INTO movies (title, length_hours, category, num_actors, producer_id, image_path) VALUES (?, ?, ?, ?, ?, ?)")) {
+                String producerId = fetchProducerId(producer);
+                pstmt.setString(1, name);
+                pstmt.setString(2, movieLengthStr);
+                pstmt.setString(3, category);
+                pstmt.setString(4, numActorsStr);
+                pstmt.setString(5, producerId);
+                pstmt.setString(6, imagePath);
 
-        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:movies_database.db");
-             PreparedStatement pstmt = conn.prepareStatement("INSERT INTO movies (title, length_hours, category, num_actors, producer_id, image_path) VALUES (?, ?, ?, ?, ?, ?)")) {
-            String producerId = fetchProducerId(producer);
-            producer = producerId;
-            pstmt.setString(1, name);
-            pstmt.setString(2, movieLengthStr);
-            pstmt.setString(3, category);
-            pstmt.setString(4, numActorsStr);
-            pstmt.setString(5, producer);
-            pstmt.setString(6, imagePath);
-
-            int rowsInserted = pstmt.executeUpdate();
-            if (rowsInserted > 0) {
-                JOptionPane.showMessageDialog(null, "Movie added successfully.");
-            } else {
-                JOptionPane.showMessageDialog(null, "Failed to add movie.");
+                int rowsInserted = pstmt.executeUpdate();
+                if (rowsInserted > 0) {
+                    JOptionPane.showMessageDialog(null, "Movie added successfully.");
+                } else {
+                    JOptionPane.showMessageDialog(null, "Failed to add movie.");
+                }
+            } catch (SQLException ex) {
+                System.err.println("Error adding movie: " + ex.getMessage());
+                ex.printStackTrace();
             }
-        } catch (SQLException ex) {
-            System.err.println("Error adding movie: " + ex.getMessage());
-            ex.printStackTrace();
-            JOptionPane.showMessageDialog(null, "Error adding movie: " + ex.getMessage());
-        }
+}
+
     }//GEN-LAST:event_addMoviesMouseClicked
 
     private void addMoviesActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addMoviesActionPerformed
@@ -1467,7 +1630,14 @@ private boolean isUsernameUnique(String username, String table) {
          int choice = JOptionPane.showConfirmDialog(null, "Are you sure you want to logout?", "Logout", JOptionPane.YES_NO_OPTION);
          if (choice == JOptionPane.YES_OPTION) {
         // User confirmed logout, switch to login screen
+            top = 0;
+            middle = 0 ;
+            bottom = 0;
+            topPage=1;
+            middlePage=1;
+            bottomPage=1;
             switchToSignInPanel();
+            
         }
     }//GEN-LAST:event_logoutMouseClicked
 
@@ -1476,6 +1646,9 @@ private boolean isUsernameUnique(String username, String table) {
          int choice = JOptionPane.showConfirmDialog(null, "Are you sure you want to logout?", "Logout", JOptionPane.YES_NO_OPTION);
          if (choice == JOptionPane.YES_OPTION) {
         // User confirmed logout, switch to login screen
+            top = 0;
+            middle = 0 ;
+            bottom = 0;
             switchToSignInPanel();
         }
     }//GEN-LAST:event_logout1MouseClicked
