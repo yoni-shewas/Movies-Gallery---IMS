@@ -35,12 +35,16 @@ public class newForm extends javax.swing.JFrame {
     private JPanel moviePanel;
     private int userID;
     
-    private JPanel[] topPanel = new JPanel[25];
-    private JPanel[] middlePanel = new JPanel[25];
-    private JPanel[] bottomPanel = new JPanel[25];
+    private JPanel[] topPanel = new JPanel[30];
+    private JPanel[] middlePanel = new JPanel[30];
+    private JPanel[] bottomPanel = new JPanel[30];
     private int topPage=1, middlePage=1,bottomPage=1;
     private boolean isDelete = false;
     private boolean isEdit = false;
+    private JPanel editPanel = null;
+     private JPanel editSection = null;
+     private int editIndex;
+     private int movieId = 0;
     
     private int top = 0, middle = 0, bottom = 0;
     
@@ -118,6 +122,12 @@ public class newForm extends javax.swing.JFrame {
 
 private void loadMovies(boolean isAdmin) {
     // Load movies from the database and add them to the movie panel
+    topSection.removeAll();
+    middleSection.removeAll();
+    bottomSection.removeAll();
+    topSection1.removeAll();
+    middleSection2.removeAll();
+    
     try (Connection conn = DriverManager.getConnection("jdbc:sqlite:movies_database.db");
          PreparedStatement pstmt = conn.prepareStatement("SELECT m.movie_id, m.title, m.image_path, m.category, m.length_hours, m.num_actors, m.producer_id, AVG(r.rating) AS avg_rating\n" +
                                                         "FROM movies m LEFT JOIN ratings r ON m.movie_id = r.movie_id\n" +
@@ -190,6 +200,7 @@ private void loadMovies(boolean isAdmin) {
             switch (category) {
                 case "Adventure":
                     section = isAdmin ? topSection1 : topSection;
+                    
                     break;
                 case "Comedy":
                     section = isAdmin ? middleSection2 : middleSection;
@@ -202,6 +213,7 @@ private void loadMovies(boolean isAdmin) {
                     section = topSection; // Default to top section if category is not recognized
                     break;
             }
+            
             
             final JButton deleteButton = new JButton("Delete");
             final JButton editButton = new JButton("Edit");
@@ -228,25 +240,79 @@ private void loadMovies(boolean isAdmin) {
              
             if(isAdmin){
                 final JPanel finalSection = section; // Declare section as final
+                final JPanel finalMovieInfoPanel = movieInfoPanel; 
+               
                 deleteButton.addActionListener(e -> {
                     // Perform deletion logic here
                     deleteMovie(id);
                     // Remove the content panel from the UI
                     isDelete = true;
-                    finalSection.remove(movieInfoPanel);
+                    finalSection.remove(finalMovieInfoPanel);
+                    finalMovieInfoPanel.removeAll();
                     
                     finalSection.revalidate();
                     finalSection.repaint();
                     // Revalidate and repaint the section to update the UI
                     
                 });
-                if(isDelete){
-                    section.remove(movieInfoPanel);
+                
+                editButton.addActionListener(e -> {
+                    // Set the editPanel and editSection variables globally
+                    isEdit = true;
+                    switch (category) {
+                        case "Adventure":
+                            
+                            editIndex = top;
+//                            System.out.println("before editIndex");
+//                            System.out.println(editIndex);
+                            break;
+                        case "Comedy":
+                            
+                            editIndex = middle;
+                            break;
+                        case "Romantic":
+                            
+                            editIndex = bottom;
+
+                            break;
+                        default:
+                           editIndex = top;
+                            break;
+                    }
                     
-                    section.revalidate();
-                    section.repaint();
-                    isDelete = false;
-                }
+                    finalMovieInfoPanel.removeAll(); 
+                    movieId = id ;
+                    editSection = finalSection;
+               
+
+                    // Set the values of text fields and combo boxes with the existing movie information
+                    movieName.setText(title);
+                    movieLength.setText(String.valueOf(lengthHours));
+                    movieNumberOfActors.setText(String.valueOf(numActors ));
+                    int lastSlashIndex = imagePath.lastIndexOf("/");
+                    String fileName = imagePath.substring(lastSlashIndex + 1);
+                    movieImagePath.setText(fileName);
+                    
+
+                    // Set the selected category and producer in the combo boxes
+                    movieCategory.setSelectedItem(category);
+                    movieProducer.setSelectedItem(producer);
+                    
+                 
+                    // Change the button text to "Save" or any appropriate label for editing mode
+                    addMovies.setText("Edit");
+                    jLabel15.setText("Edit movie");
+
+    // Set the flag to indicate that it's in edit mode
+ 
+
+                   
+                    // Revalidate and repaint the section to update the UI
+                    editSection.revalidate();
+                    editSection.repaint();
+                });
+
+               
             }
 
             
@@ -254,9 +320,14 @@ private void loadMovies(boolean isAdmin) {
             switch (category) {
                 case "Adventure":
                     section = isAdmin ? topSection1 : topSection;
+                    System.out.println("top");
+                    System.out.println(top);
+                    
                     if (top < 4) {
                         section.add(movieInfoPanel);
+                        
                         topPanel[top] = movieInfoPanel;
+                       
                         top++;
                         if (top == 4) {
                             JButton moreButton = new JButton("more");
@@ -277,7 +348,10 @@ private void loadMovies(boolean isAdmin) {
                 case "Comedy":
                     section = isAdmin ? middleSection2 : middleSection;
                     if (middle < 4) {
+                      
+                        
                         middlePanel[middle] = movieInfoPanel;
+                        
                         section.add(movieInfoPanel);
                         middle++;
                         if (middle == 4) {
@@ -676,6 +750,23 @@ private boolean rateMovie(int movieId, int userId, int rating) {
     }
 }
 
+private boolean isMovieNameUnique(String movieName) {
+    try (Connection conn = DriverManager.getConnection("jdbc:sqlite:movies_database.db");
+         PreparedStatement pstmt = conn.prepareStatement("SELECT COUNT(*) AS count FROM movies WHERE title = ?")) {
+        pstmt.setString(1, movieName);
+        ResultSet rs = pstmt.executeQuery();
+        if (rs.next()) {
+            int count = rs.getInt("count");
+            return count == 0; // If count is 0, movie name is unique; otherwise, it's not unique
+        }
+    } catch (SQLException ex) {
+        System.err.println("Error checking movie name uniqueness: " + ex.getMessage());
+        ex.printStackTrace();
+    }
+    // Return false by default if an error occurs
+    return false;
+}
+
 private boolean hasUserRatedMovie(int movieId, int userId) {
     String sql = "SELECT COUNT(*) FROM ratings WHERE movie_id = ? AND user_id = ?";
     try (Connection conn = DriverManager.getConnection(DB_URL);
@@ -769,6 +860,133 @@ private boolean isUsernameUnique(String username, String table) {
     // Error occurred or username exists, return false
     return false;
 }
+
+// Method to update the movie information panel in real-time
+// Method to update the movie information panel in real-time
+private void updateEditSectionWithMovieInfoPanel(int id, String title, String imagePath, String category, int lengthHours, int numActors, String producer) {
+            
+            
+            
+            JLabel imageLabel = null;
+            try {
+                imagePath = "/movies/gallery/ims/Movie_Images/" + imagePath;
+                ImageIcon imageIcon = new ImageIcon(getClass().getResource(imagePath));
+                Image scaledImage = imageIcon.getImage().getScaledInstance(145, 180, Image.SCALE_SMOOTH);
+                ImageIcon scaledImageIcon = new ImageIcon(scaledImage);
+                imageLabel = new JLabel(scaledImageIcon);
+                imageLabel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+            } catch (NullPointerException e) {
+                // Handle the case where the image file is not found
+                System.err.println("Image file not found: " + e.getMessage());
+                // Load a default image
+                ImageIcon imageIcon = new ImageIcon(getClass().getResource("icon.png"));
+                Image scaledImage = imageIcon.getImage().getScaledInstance(145, 180, Image.SCALE_SMOOTH);
+                ImageIcon scaledImageIcon = new ImageIcon(scaledImage);
+                imageLabel = new JLabel(scaledImageIcon);
+                imageLabel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+            }
+
+            JLabel titleLabel = new JLabel(title);
+            JLabel categoryLabel = new JLabel("Category: " + category);
+            JLabel lengthLabel = new JLabel("Length (hours): " + lengthHours);
+            JLabel actorsLabel = new JLabel("Number of Actors: " + numActors);
+            JLabel producerLabel = new JLabel("Producer: " + producer);
+            
+
+            JPanel contentPanel = new JPanel(new BorderLayout());
+            JLabel paddingLabel = new JLabel(" "); // Add padding
+            contentPanel.add(paddingLabel, BorderLayout.NORTH);
+            JPanel textPanel = new JPanel(new GridLayout(0, 1));
+            textPanel.add(titleLabel);
+            textPanel.add(categoryLabel);
+            textPanel.add(lengthLabel);
+            textPanel.add(actorsLabel);
+            textPanel.add(producerLabel);
+            final JButton deleteButton = new JButton("Delete");
+            final JButton editButton = new JButton("Edit");
+            JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            buttonPanel.add(editButton);
+            buttonPanel.add(deleteButton);
+            
+            
+            contentPanel.add(textPanel, BorderLayout.CENTER);
+            contentPanel.add(buttonPanel, BorderLayout.SOUTH);
+
+            JPanel movieInfoPanel = new JPanel(); // Initialize inside the loop
+            movieInfoPanel.setLayout(new BoxLayout(movieInfoPanel, BoxLayout.X_AXIS)); // Use BoxLayout for side-by-side alignment
+            movieInfoPanel.setPreferredSize(new Dimension(250, 185)); // Set preferred size
+            movieInfoPanel.setBorder(BorderFactory.createEmptyBorder()); // Ensure no extra space is taken up
+
+            int leftPadding = 0; // Adjust this value as needed
+            int topPadding = 0;
+            int rightPadding = 12;
+            int bottomPadding = 0;
+            Border paddingBorder = BorderFactory.createEmptyBorder(topPadding, leftPadding, bottomPadding, rightPadding);
+
+            // Add the padding border to the movieInfoPanel
+            movieInfoPanel.setBorder(paddingBorder);
+
+            movieInfoPanel.add(imageLabel);
+            movieInfoPanel.add(contentPanel);
+
+            int componentCount = editSection.getComponentCount();
+
+            switch (category) {
+                        case "Adventure":
+                            // Iterate through topPanel to find an empty or removed element
+                            for (int i = 0; i < topPanel.length; i++) {
+                                // Check if the inner container of topPanel[i] is empty
+                                if (isEmptyContainer(topPanel[i])) {
+                                    // Replace the empty element with movieInfoPanel
+                                    topPanel[i] = movieInfoPanel;
+                                    break; // Exit the loop after replacing the element
+                                }
+                            }
+                            break;
+                        case "Comedy":
+                            middlePanel[editIndex] = movieInfoPanel;
+                            break;
+                        case "Romantic":
+                           bottomPanel[editIndex] = movieInfoPanel;
+
+                            break;
+                        default:
+                            topPanel[editIndex] = movieInfoPanel;
+                            break;
+                    }
+            
+                    // Set the values of text fields and combo boxes with the existing movie information
+                    movieName.setText(" ");
+                    movieLength.setText(" ");
+                    movieNumberOfActors.setText(" ");
+                    movieImagePath.setText(" ");
+
+                    // Set the selected category and producer in the combo boxes
+                    movieCategory.setSelectedItem(" ");
+                    movieProducer.setSelectedItem(" ");
+                    
+                 
+                    // Change the button text to "Save" or any appropriate label for editing mode
+                    addMovies.setText("Add");
+                    jLabel15.setText("Add movie");
+
+            // Add the movieInfoPanel at the beginning (index 0)
+            editSection.add(movieInfoPanel, 0);
+
+            // Revalidate and repaint the editSection to update the UI
+            editSection.revalidate();
+            editSection.repaint();
+}
+
+
+// Method to check if a container is empty
+private boolean isEmptyContainer(Container container) {
+    // Check if the container has no components
+    return container.getComponentCount() == 0;
+}
+
+
+
 
 
     
@@ -1514,6 +1732,7 @@ private boolean isUsernameUnique(String username, String table) {
             
             if (isEdit) {
                 // Update the existing movie details in the database
+               System.out.println(movieId);
                 try (Connection conn = DriverManager.getConnection("jdbc:sqlite:movies_database.db");
                      PreparedStatement pstmt = conn.prepareStatement("UPDATE movies SET title=?, length_hours=?, category=?, num_actors=?, producer_id=?, image_path=? WHERE movie_id=?")) {
                     String producerId = fetchProducerId(producer);
@@ -1523,22 +1742,27 @@ private boolean isUsernameUnique(String username, String table) {
                     pstmt.setString(4, numActorsStr);
                     pstmt.setString(5, producerId);
                     pstmt.setString(6, imagePath);
-//                    pstmt.setInt(7, movieId); // Assuming movieId is the ID of the movie being edited
+                    pstmt.setInt(7, movieId);
 
                     int rowsUpdated = pstmt.executeUpdate();
                     if (rowsUpdated > 0) {
                         JOptionPane.showMessageDialog(null, "Movie updated successfully.");
+                        updateEditSectionWithMovieInfoPanel(movieId, name, imagePath, category, Integer.parseInt(movieLengthStr), Integer.parseInt(numActorsStr), producer);
+                       
                     } else {
                         JOptionPane.showMessageDialog(null, "Failed to update movie.");
                     }
-                    isEdit = false;
                     editArrangment();
+                    isEdit = false;
+                    
                 } catch (SQLException ex) {
                     System.err.println("Error updating movie: " + ex.getMessage());
                     ex.printStackTrace();
                     isEdit = false;
                 }
     }   else {
+                
+             
     // Insert a new movie into the database
             try (Connection conn = DriverManager.getConnection("jdbc:sqlite:movies_database.db");
                  PreparedStatement pstmt = conn.prepareStatement("INSERT INTO movies (title, length_hours, category, num_actors, producer_id, image_path) VALUES (?, ?, ?, ?, ?, ?)")) {
@@ -1636,6 +1860,8 @@ private boolean isUsernameUnique(String username, String table) {
             topPage=1;
             middlePage=1;
             bottomPage=1;
+            isDelete = false;
+            isEdit = false;
             switchToSignInPanel();
             
         }
@@ -1649,6 +1875,9 @@ private boolean isUsernameUnique(String username, String table) {
             top = 0;
             middle = 0 ;
             bottom = 0;
+            topPage=1;
+            middlePage=1;
+            bottomPage=1;
             switchToSignInPanel();
         }
     }//GEN-LAST:event_logout1MouseClicked
