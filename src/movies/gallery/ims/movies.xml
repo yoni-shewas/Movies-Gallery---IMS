@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch4jConfig>
+  <dontWrapJar>false</dontWrapJar>
+  <headerType>gui</headerType>
+  <jar>C:\Users\PC\Documents\NetBeansProjects\Movies Gallery - IMS\dist\Movies_Gallery_-_IMS.jar</jar>
+  <outfile>C:\Users\PC\Documents\NetBeansProjects\Movies Gallery - IMS\src\movies\gallery\ims\movie gallery.exe</outfile>
+  <errTitle></errTitle>
+  <cmdLine></cmdLine>
+  <chdir>.</chdir>
+  <priority>normal</priority>
+  <downloadUrl></downloadUrl>
+  <supportUrl></supportUrl>
+  <stayAlive>false</stayAlive>
+  <restartOnCrash>false</restartOnCrash>
+  <manifest></manifest>
+  <icon>C:\Users\PC\Documents\NetBeansProjects\Movies Gallery - IMS\src\movies\gallery\ims\Movie_Images\icon.ico</icon>
+  <jre>
+    <path>%JAVA_HOME%;%PATH%</path>
+    <requiresJdk>false</requiresJdk>
+    <requires64Bit>false</requires64Bit>
+    <minVersion>1.0</minVersion>
+    <maxVersion></maxVersion>
+  </jre>
+</launch4jConfig>

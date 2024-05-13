@@ -13,10 +13,11 @@ import javax.swing.JOptionPane;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.FlowLayout;
-import java.awt.event.KeyEvent;
 import javax.swing.BorderFactory;
 import java.awt.Insets;
 import javax.swing.border.Border;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 
 
 
@@ -234,6 +235,33 @@ private void loadMovies(boolean isAdmin) {
                 JPanel ratingButtonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
                 ratingButtonPanel.add(rateButton);
                 contentPanel.add(ratingButtonPanel, BorderLayout.SOUTH);
+                
+                rateButton.addActionListener(e -> {
+                    // Prompt the user to enter their rating using an input dialog
+                    String ratingStr = JOptionPane.showInputDialog(null, "Enter your rating (1-5):");
+
+                    // Validate the user input
+                    try {
+                        // Parse the input string to an integer
+                        int rating = Integer.parseInt(ratingStr);
+
+                        // Check if the rating is within the valid range (1-5)
+                        if (rating < 1 || rating > 5) {
+                            // Display an error message if the rating is out of range
+                            JOptionPane.showMessageDialog(null, "Please enter a rating between 1 and 5.");
+                            return; // Exit the action listener if the rating is invalid
+                        }
+
+                        // If the input is valid, call the rateMovie function with the movie ID, user ID, and rating
+                        if(rateMovie(id, userID, rating)){
+                            ratingLabel.setText("Avg Rating: " + String.format("%.2f", calculateUpdatedAverageRating(id)));
+                        }
+                    } catch (NumberFormatException ex) {
+                        // Display an error message if the input cannot be parsed as an integer
+                        JOptionPane.showMessageDialog(null, "Please enter a valid integer rating.");
+                    }
+               
+                });
             }
             movieInfoPanel.add(imageLabel);
             movieInfoPanel.add(contentPanel);
@@ -243,17 +271,23 @@ private void loadMovies(boolean isAdmin) {
                 final JPanel finalMovieInfoPanel = movieInfoPanel; 
                
                 deleteButton.addActionListener(e -> {
-                    // Perform deletion logic here
-                    deleteMovie(id);
-                    // Remove the content panel from the UI
-                    isDelete = true;
-                    finalSection.remove(finalMovieInfoPanel);
-                    finalMovieInfoPanel.removeAll();
-                    
-                    finalSection.revalidate();
-                    finalSection.repaint();
-                    // Revalidate and repaint the section to update the UI
-                    
+                    // Display a confirmation dialog
+                    int dialogResult = JOptionPane.showConfirmDialog(null, "Are you sure you want to delete this movie?", "Confirm Delete", JOptionPane.YES_NO_OPTION);
+
+                    // Check the user's choice
+                    if (dialogResult == JOptionPane.YES_OPTION) {
+                        // User confirmed deletion, perform deletion logic
+                        deleteMovie(id);
+
+                        // Remove the content panel from the UI
+                        isDelete = true;
+                        finalSection.remove(finalMovieInfoPanel);
+                        finalMovieInfoPanel.removeAll();
+
+                        finalSection.revalidate();
+                        finalSection.repaint();
+                        // Revalidate and repaint the section to update the UI
+                    }
                 });
                 
                 editButton.addActionListener(e -> {
@@ -708,6 +742,27 @@ private String fetchProducerId(String producerName) {
     return producerId;
 }
 
+private double calculateUpdatedAverageRating(int movieId) {
+    double updatedAvgRating = 0.0;
+
+    // Query the database to calculate the updated average rating
+    try (Connection conn = DriverManager.getConnection("jdbc:sqlite:movies_database.db");
+         PreparedStatement pstmt = conn.prepareStatement("SELECT AVG(rating) AS avg_rating FROM ratings WHERE movie_id = ?")) {
+        pstmt.setInt(1, movieId);
+        ResultSet rs = pstmt.executeQuery();
+
+        // Retrieve the updated average rating from the result set
+        if (rs.next()) {
+            updatedAvgRating = rs.getDouble("avg_rating");
+        }
+    } catch (SQLException ex) {
+        System.err.println("Error calculating updated average rating: " + ex.getMessage());
+        ex.printStackTrace();
+    }
+
+    return updatedAvgRating;
+}
+
 
 
 // Function to save user rating to the database
@@ -863,7 +918,7 @@ private boolean isUsernameUnique(String username, String table) {
 
 // Method to update the movie information panel in real-time
 // Method to update the movie information panel in real-time
-private void updateEditSectionWithMovieInfoPanel(int id, String title, String imagePath, String category, int lengthHours, int numActors, String producer) {
+private void updateEditSectionWithMovieInfoPanel(int id, String title, String imagePath, String category, int lengthHours, int numActors, String producer, boolean isAdd) {
             
             
             
@@ -928,23 +983,49 @@ private void updateEditSectionWithMovieInfoPanel(int id, String title, String im
 
             movieInfoPanel.add(imageLabel);
             movieInfoPanel.add(contentPanel);
+            if(!isAdd){
+               int componentCount = editSection.getComponentCount(); 
+            }
 
-            int componentCount = editSection.getComponentCount();
+            
 
             switch (category) {
                         case "Adventure":
-                            // Iterate through topPanel to find an empty or removed element
-                            for (int i = 0; i < topPanel.length; i++) {
-                                // Check if the inner container of topPanel[i] is empty
-                                if (isEmptyContainer(topPanel[i])) {
-                                    // Replace the empty element with movieInfoPanel
-                                    topPanel[i] = movieInfoPanel;
-                                    break; // Exit the loop after replacing the element
+                            if(!isAdd)
+                            {
+                                // Iterate through topPanel to find an empty or removed element
+                                for (int i = 0; i < topPanel.length; i++) {
+                                    // Check if the inner container of topPanel[i] is empty
+                                    if (isEmptyContainer(topPanel[i])) {
+                                        // Replace the empty element with movieInfoPanel
+                                        topPanel[i] = movieInfoPanel;
+                                        break; // Exit the loop after replacing the element
+                                    }
                                 }
+                            }
+                            else{
+                                
+                                topPanel[top] = movieInfoPanel;
+                                top++;
                             }
                             break;
                         case "Comedy":
-                            middlePanel[editIndex] = movieInfoPanel;
+                            if(!isAdd)
+                            {
+                                for (int i = 0; i < topPanel.length; i++) {
+                                    // Check if the inner container of topPanel[i] is empty
+                                    if (isEmptyContainer(topPanel[i])) {
+                                        // Replace the empty element with movieInfoPanel
+                                        middlePanel[i] = movieInfoPanel;
+                                        break; // Exit the loop after replacing the element
+                                    }
+                                }
+                            }
+                            else{
+                                
+                                middlePanel[middle] = movieInfoPanel;
+                                middle++;
+                            }
                             break;
                         case "Romantic":
                            bottomPanel[editIndex] = movieInfoPanel;
@@ -955,6 +1036,8 @@ private void updateEditSectionWithMovieInfoPanel(int id, String title, String im
                             break;
                     }
             
+            if(!isAdd){
+               
                     // Set the values of text fields and combo boxes with the existing movie information
                     movieName.setText(" ");
                     movieLength.setText(" ");
@@ -976,6 +1059,7 @@ private void updateEditSectionWithMovieInfoPanel(int id, String title, String im
             // Revalidate and repaint the editSection to update the UI
             editSection.revalidate();
             editSection.repaint();
+            }
 }
 
 
@@ -1023,6 +1107,7 @@ private boolean isEmptyContainer(Container container) {
         label6 = new java.awt.Label();
         label9 = new java.awt.Label();
         Fullname = new javax.swing.JTextField();
+        jButton1 = new javax.swing.JButton();
         HomePage = new javax.swing.JPanel();
         UserLabel = new javax.swing.JLabel();
         jLabel1 = new javax.swing.JLabel();
@@ -1076,6 +1161,11 @@ private boolean isEmptyContainer(Container container) {
                 UsernameSigninActionPerformed(evt);
             }
         });
+        UsernameSignin.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyPressed(java.awt.event.KeyEvent evt) {
+                UsernameSigninKeyPressed(evt);
+            }
+        });
 
         label1.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         label1.setFont(new java.awt.Font("Dialog", 0, 36)); // NOI18N
@@ -1108,6 +1198,11 @@ private boolean isEmptyContainer(Container container) {
             }
         });
 
+        passwordSignin.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                passwordSigninMouseClicked(evt);
+            }
+        });
         passwordSignin.addKeyListener(new java.awt.event.KeyAdapter() {
             public void keyPressed(java.awt.event.KeyEvent evt) {
                 passwordSigninKeyPressed(evt);
@@ -1166,7 +1261,7 @@ private boolean isEmptyContainer(Container container) {
                 .addComponent(signInButton, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(Signup, javax.swing.GroupLayout.PREFERRED_SIZE, 29, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(277, Short.MAX_VALUE))
+                .addContainerGap(306, Short.MAX_VALUE))
         );
 
         tabs.addTab("signIN", signIn);
@@ -1229,6 +1324,13 @@ private boolean isEmptyContainer(Container container) {
             }
         });
 
+        jButton1.setText("Back");
+        jButton1.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                jButton1MouseClicked(evt);
+            }
+        });
+
         javax.swing.GroupLayout signUPLayout = new javax.swing.GroupLayout(signUP);
         signUP.setLayout(signUPLayout);
         signUPLayout.setHorizontalGroup(
@@ -1244,9 +1346,10 @@ private boolean isEmptyContainer(Container container) {
                             .addComponent(UsernameSignup, javax.swing.GroupLayout.PREFERRED_SIZE, 423, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addComponent(label9, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addComponent(label6, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addGroup(javax.swing.GroupLayout.Alignment.LEADING, signUPLayout.createSequentialGroup()
-                                .addGap(87, 87, 87)
-                                .addComponent(label2, javax.swing.GroupLayout.PREFERRED_SIZE, 130, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, signUPLayout.createSequentialGroup()
+                                .addComponent(label2, javax.swing.GroupLayout.PREFERRED_SIZE, 130, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addGap(84, 84, 84)
+                                .addComponent(jButton1))
                             .addGroup(javax.swing.GroupLayout.Alignment.LEADING, signUPLayout.createSequentialGroup()
                                 .addGap(1, 1, 1)
                                 .addGroup(signUPLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1259,9 +1362,15 @@ private boolean isEmptyContainer(Container container) {
         signUPLayout.setVerticalGroup(
             signUPLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(signUPLayout.createSequentialGroup()
-                .addGap(140, 140, 140)
-                .addComponent(label2, javax.swing.GroupLayout.PREFERRED_SIZE, 52, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(30, 30, 30)
+                .addGroup(signUPLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(signUPLayout.createSequentialGroup()
+                        .addGap(159, 159, 159)
+                        .addComponent(jButton1)
+                        .addGap(40, 40, 40))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, signUPLayout.createSequentialGroup()
+                        .addContainerGap()
+                        .addComponent(label2, javax.swing.GroupLayout.PREFERRED_SIZE, 52, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(27, 27, 27)))
                 .addComponent(label9, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(Fullname, javax.swing.GroupLayout.PREFERRED_SIZE, 38, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -1279,7 +1388,7 @@ private boolean isEmptyContainer(Container container) {
                 .addComponent(passwordSignupConfirm, javax.swing.GroupLayout.PREFERRED_SIZE, 34, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
                 .addComponent(signUpButton)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap(226, Short.MAX_VALUE))
         );
 
         tabs.addTab("SignUP", signUP);
@@ -1357,7 +1466,7 @@ private boolean isEmptyContainer(Container container) {
                 .addComponent(jLabel3, javax.swing.GroupLayout.PREFERRED_SIZE, 25, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(bottomSection, javax.swing.GroupLayout.PREFERRED_SIZE, 208, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(24, Short.MAX_VALUE))
+                .addContainerGap(53, Short.MAX_VALUE))
         );
 
         tabs.addTab("Home", HomePage);
@@ -1533,7 +1642,7 @@ private boolean isEmptyContainer(Container container) {
                                         .addComponent(jLabel16, javax.swing.GroupLayout.PREFERRED_SIZE, 103, javax.swing.GroupLayout.PREFERRED_SIZE)
                                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                                         .addComponent(AdminrLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 88, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                         .addComponent(logout))))
                             .addComponent(topSection1, javax.swing.GroupLayout.DEFAULT_SIZE, 0, Short.MAX_VALUE)
                             .addComponent(middleSection2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
@@ -1573,7 +1682,7 @@ private boolean isEmptyContainer(Container container) {
                                         .addGap(16, 16, 16)
                                         .addComponent(addMovies))
                                     .addComponent(jSeparator1, javax.swing.GroupLayout.PREFERRED_SIZE, 154, javax.swing.GroupLayout.PREFERRED_SIZE))
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 31, Short.MAX_VALUE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 60, Short.MAX_VALUE)
                                 .addComponent(jLabel7))
                             .addGroup(adminPageLayout.createSequentialGroup()
                                 .addComponent(jLabel16, javax.swing.GroupLayout.PREFERRED_SIZE, 45, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -1591,14 +1700,14 @@ private boolean isEmptyContainer(Container container) {
                                     .addComponent(adminPassword, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
                                 .addGap(18, 18, 18)
                                 .addComponent(addAdmin)
-                                .addGap(0, 0, Short.MAX_VALUE)))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED))
+                                .addGap(0, 0, Short.MAX_VALUE))))
                     .addGroup(adminPageLayout.createSequentialGroup()
-                        .addGap(15, 15, 15)
+                        .addGap(36, 36, 36)
                         .addGroup(adminPageLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                            .addComponent(AdminrLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(logout, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                            .addComponent(logout, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(AdminrLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addGap(0, 0, Short.MAX_VALUE)))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(topSection1, javax.swing.GroupLayout.PREFERRED_SIZE, 202, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jLabel8)
@@ -1609,7 +1718,7 @@ private boolean isEmptyContainer(Container container) {
 
         tabs.addTab("Admin", adminPage);
 
-        getContentPane().add(tabs, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 0, 1440, 790));
+        getContentPane().add(tabs, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, -40, 1440, 830));
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
@@ -1676,6 +1785,9 @@ private boolean isEmptyContainer(Container container) {
         // TODO add your handling code here:
         if (evt.getKeyCode() == KeyEvent.VK_ENTER) {
             signIn();
+        }
+        if (evt.getKeyCode() == KeyEvent.VK_UP  ) {
+            UsernameSignin.requestFocusInWindow();
         }
     }//GEN-LAST:event_passwordSigninKeyPressed
 
@@ -1747,7 +1859,7 @@ private boolean isEmptyContainer(Container container) {
                     int rowsUpdated = pstmt.executeUpdate();
                     if (rowsUpdated > 0) {
                         JOptionPane.showMessageDialog(null, "Movie updated successfully.");
-                        updateEditSectionWithMovieInfoPanel(movieId, name, imagePath, category, Integer.parseInt(movieLengthStr), Integer.parseInt(numActorsStr), producer);
+                        updateEditSectionWithMovieInfoPanel(movieId, name, imagePath, category, Integer.parseInt(movieLengthStr), Integer.parseInt(numActorsStr), producer,false);
                        
                     } else {
                         JOptionPane.showMessageDialog(null, "Failed to update movie.");
@@ -1777,6 +1889,7 @@ private boolean isEmptyContainer(Container container) {
                 int rowsInserted = pstmt.executeUpdate();
                 if (rowsInserted > 0) {
                     JOptionPane.showMessageDialog(null, "Movie added successfully.");
+                    updateEditSectionWithMovieInfoPanel(movieId, name, imagePath, category, Integer.parseInt(movieLengthStr), Integer.parseInt(numActorsStr), producer,true);
                 } else {
                     JOptionPane.showMessageDialog(null, "Failed to add movie.");
                 }
@@ -1882,6 +1995,23 @@ private boolean isEmptyContainer(Container container) {
         }
     }//GEN-LAST:event_logout1MouseClicked
 
+    private void UsernameSigninKeyPressed(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_UsernameSigninKeyPressed
+        // TODO add your handling code here:
+        if (evt.getKeyCode() == KeyEvent.VK_ENTER || evt.getKeyCode() == KeyEvent.VK_DOWN  ) {
+            passwordSignin.requestFocusInWindow();
+        }
+    }//GEN-LAST:event_UsernameSigninKeyPressed
+
+    private void passwordSigninMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_passwordSigninMouseClicked
+        // TODO add your handling code here:
+
+    }//GEN-LAST:event_passwordSigninMouseClicked
+
+    private void jButton1MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jButton1MouseClicked
+        // TODO add your handling code here:
+        switchToSignInPanel();
+    }//GEN-LAST:event_jButton1MouseClicked
+
     /**
      * @param args the command line arguments
      */
@@ -1932,6 +2062,7 @@ private boolean isEmptyContainer(Container container) {
     private javax.swing.JTextField adminPassword;
     private javax.swing.JTextField adminUsername;
     private javax.swing.JPanel bottomSection;
+    private javax.swing.JButton jButton1;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel10;
     private javax.swing.JLabel jLabel11;

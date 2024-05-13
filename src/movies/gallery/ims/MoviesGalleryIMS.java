@@ -115,7 +115,7 @@ public class MoviesGalleryIMS {
             frame.setSize(1443, 817);
             frame.setTitle("Movies Gallery Information Management System");
 
-            ImageIcon icon = new ImageIcon("icon.png");
+            ImageIcon icon = new ImageIcon("icon.ico");
             Image image = icon.getImage();
 
             if (image != null) {
